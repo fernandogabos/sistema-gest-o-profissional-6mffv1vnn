@@ -10,6 +10,7 @@ import {
   Package,
   Activity,
   ClipboardCheck,
+  MessageSquare,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -38,6 +39,7 @@ export function AppSidebar() {
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Alunos', url: '/alunos', icon: Users },
     { title: 'Avaliações', url: '/avaliacoes', icon: ClipboardCheck },
+    { title: 'Comunicação', url: '/comunicacao', icon: MessageSquare },
     { title: 'Locais', url: '/locais', icon: MapPin },
     { title: 'Sessões', url: '/sessoes', icon: Activity },
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },

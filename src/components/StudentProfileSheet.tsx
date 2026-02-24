@@ -8,9 +8,17 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { Student } from '@/stores/mockData'
 import useAppStore from '@/stores/main'
+import { formatDate } from '@/lib/formatters'
 
 interface Props {
   student: Student | null
@@ -19,11 +27,14 @@ interface Props {
 }
 
 export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
-  const { plans } = useAppStore()
+  const { plans, communicationLogs, updateStudentConsent } = useAppStore()
 
   if (!student) return null
 
   const plan = plans.find((p) => p.id === student.planId)
+  const studentLogs = communicationLogs
+    .filter((l) => l.targetId === student.id)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -60,9 +71,10 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mb-6">
+          <TabsList className="grid w-full grid-cols-3 mb-6">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
             <TabsTrigger value="contact">Contato</TabsTrigger>
+            <TabsTrigger value="communication">Comunicação</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 animate-fade-in">
@@ -98,6 +110,84 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
                   </span>
                   <p className="font-medium">{student.telefone}</p>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent
+            value="communication"
+            className="animate-fade-in space-y-4"
+          >
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm font-medium">
+                      Consentimento (LGPD)
+                    </CardTitle>
+                    <CardDescription>
+                      Autorização para envio de mensagens automáticas.
+                      {student.consentUpdatedAt && (
+                        <span className="block mt-1">
+                          Atualizado em: {formatDate(student.consentUpdatedAt)}
+                        </span>
+                      )}
+                    </CardDescription>
+                  </div>
+                  <Switch
+                    checked={student.whatsappConsent}
+                    onCheckedChange={(val) =>
+                      updateStudentConsent(student.id, val)
+                    }
+                  />
+                </div>
+              </CardHeader>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">
+                  Histórico Recente
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {studentLogs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Nenhuma mensagem registrada.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {studentLogs.map((log) => (
+                      <div
+                        key={log.id}
+                        className="text-sm border-b pb-3 last:border-0 last:pb-0"
+                      >
+                        <div className="flex justify-between items-start mb-1">
+                          <span className="font-medium">
+                            {formatDate(log.timestamp)}
+                          </span>
+                          <Badge
+                            variant={
+                              log.status === 'failed'
+                                ? 'destructive'
+                                : 'secondary'
+                            }
+                            className="text-[10px]"
+                          >
+                            {log.status === 'read'
+                              ? 'Lida'
+                              : log.status === 'delivered'
+                                ? 'Entregue'
+                                : log.status === 'failed'
+                                  ? 'Falhou'
+                                  : 'Enviada'}
+                          </Badge>
+                        </div>
+                        <p className="text-muted-foreground">{log.content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

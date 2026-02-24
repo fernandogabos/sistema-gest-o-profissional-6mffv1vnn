@@ -34,6 +34,8 @@ export type Student = {
   status: 'active' | 'inactive' | 'delinquent'
   avatarUrl: string
   planId?: string
+  whatsappConsent?: boolean
+  consentUpdatedAt?: string
 }
 export type Plan = {
   id: string
@@ -114,6 +116,39 @@ export type EvaluationResult = {
   totalScore: number
   classification: 'Critical' | 'Low' | 'Medium' | 'High'
   scores: { criterionId: string; name: string; weight: number; value: number }[]
+}
+
+export type CommunicationTemplate = {
+  id: string
+  tenantId: string
+  name: string
+  triggerEvent:
+    | 'manual'
+    | 'new_student'
+    | 'payment_overdue'
+    | 'evaluation_completed'
+    | 'monthly_report'
+    | 'task_deadline'
+  content: string
+  isActive: boolean
+}
+
+export type CommunicationLog = {
+  id: string
+  tenantId: string
+  targetId: string
+  templateId?: string
+  content: string
+  status: 'sent' | 'delivered' | 'read' | 'failed'
+  channel: 'whatsapp' | 'email' | 'sms'
+  timestamp: string
+}
+
+export type WhatsAppConfig = {
+  tenantId: string
+  isConnected: boolean
+  phoneNumber: string
+  apiToken: string
 }
 
 const currentMonth = new Date().toISOString().slice(0, 7)
@@ -240,6 +275,7 @@ export const mockStudents: Student[] = [
     planId: 'p-1',
     status: 'active',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
+    whatsappConsent: true,
   },
   {
     id: 'stu-2',
@@ -250,6 +286,7 @@ export const mockStudents: Student[] = [
     planId: 'p-2',
     status: 'active',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=2',
+    whatsappConsent: true,
   },
 ]
 
@@ -365,6 +402,59 @@ export const mockEvaluationResults: EvaluationResult[] = [
         value: 80,
       },
     ],
+  },
+]
+
+export const mockCommunicationTemplates: CommunicationTemplate[] = [
+  {
+    id: 'tpl-comm-1',
+    tenantId: 't-1',
+    name: 'Boas-vindas',
+    triggerEvent: 'new_student',
+    content:
+      'Olá {{client_name}}, bem-vindo(a)! Estamos felizes em ter você conosco na nossa consultoria.',
+    isActive: true,
+  },
+  {
+    id: 'tpl-comm-2',
+    tenantId: 't-1',
+    name: 'Aviso de Vencimento',
+    triggerEvent: 'payment_overdue',
+    content:
+      'Olá {{client_name}}, identificamos um atraso no pagamento do valor de R$ {{amount}}. Por favor, entre em contato para regularizar.',
+    isActive: true,
+  },
+  {
+    id: 'tpl-comm-3',
+    tenantId: 't-1',
+    name: 'Avaliação Finalizada',
+    triggerEvent: 'evaluation_completed',
+    content:
+      'Parabéns {{client_name}}! Sua nova avaliação foi registrada. Acesse o app para ver sua evolução.',
+    isActive: true,
+  },
+]
+
+export const mockCommunicationLogs: CommunicationLog[] = [
+  {
+    id: 'log-c-1',
+    tenantId: 't-1',
+    targetId: 'stu-1',
+    templateId: 'tpl-comm-1',
+    content:
+      'Olá Carlos Santos, bem-vindo(a)! Estamos felizes em ter você conosco na nossa consultoria.',
+    status: 'read',
+    channel: 'whatsapp',
+    timestamp: '2023-10-01T10:00:00Z',
+  },
+]
+
+export const mockWhatsAppConfigs: WhatsAppConfig[] = [
+  {
+    tenantId: 't-1',
+    isConnected: true,
+    phoneNumber: '5511999999999',
+    apiToken: 'mock-token-abc',
   },
 ]
 

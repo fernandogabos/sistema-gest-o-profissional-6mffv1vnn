@@ -18,6 +18,9 @@ import {
   AuditLog,
   EvaluationTemplate,
   EvaluationResult,
+  CommunicationTemplate,
+  CommunicationLog,
+  WhatsAppConfig,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -29,6 +32,9 @@ import {
   mockAuditLogs,
   mockEvaluationTemplates,
   mockEvaluationResults,
+  mockCommunicationTemplates,
+  mockCommunicationLogs,
+  mockWhatsAppConfigs,
   themeOptions,
 } from './mockData'
 
@@ -45,6 +51,9 @@ type AppState = {
   auditLogs: AuditLog[]
   evaluationTemplates: EvaluationTemplate[]
   evaluationResults: EvaluationResult[]
+  communicationTemplates: CommunicationTemplate[]
+  communicationLogs: CommunicationLog[]
+  whatsappConfigs: WhatsAppConfig[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -84,6 +93,21 @@ type AppActions = {
     updates: Partial<EvaluationTemplate>,
   ) => void
   addEvaluationResult: (res: Omit<EvaluationResult, 'id' | 'tenantId'>) => void
+  addCommunicationTemplate: (
+    tpl: Omit<CommunicationTemplate, 'id' | 'tenantId'>,
+  ) => void
+  updateCommunicationTemplate: (
+    id: string,
+    updates: Partial<CommunicationTemplate>,
+  ) => void
+  deleteCommunicationTemplate: (id: string) => void
+  sendCommunication: (
+    targetIds: string[],
+    templateId?: string,
+    customContent?: string,
+  ) => void
+  updateWhatsAppConfig: (updates: Partial<WhatsAppConfig>) => void
+  updateStudentConsent: (id: string, consent: boolean) => void
 }
 
 type AppStore = AppState & AppActions
@@ -104,6 +128,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     auditLogs: mockAuditLogs,
     evaluationTemplates: mockEvaluationTemplates,
     evaluationResults: mockEvaluationResults,
+    communicationTemplates: mockCommunicationTemplates,
+    communicationLogs: mockCommunicationLogs,
+    whatsappConfigs: mockWhatsAppConfigs,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -119,6 +146,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       const currentMonthStr = today.slice(0, 7)
       const newExpenses = [...prev.expenses]
       const newPayments = [...prev.payments]
+      const newLogs = [...prev.communicationLogs]
       let changed = false
 
       prev.locations.forEach((loc) => {
@@ -180,6 +208,33 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         if (p.status === 'pending' && p.dataVencimento < today) {
           p.status = 'overdue'
           changed = true
+
+          const student = prev.students.find((s) => s.id === p.alunoId)
+          const config = prev.whatsappConfigs.find(
+            (c) => c.tenantId === p.tenantId,
+          )
+          const tpl = prev.communicationTemplates.find(
+            (t) =>
+              t.tenantId === p.tenantId &&
+              t.triggerEvent === 'payment_overdue' &&
+              t.isActive,
+          )
+
+          if (student?.whatsappConsent && config?.isConnected && tpl) {
+            const content = tpl.content
+              .replace(/{{client_name}}/g, student.nome)
+              .replace(/{{amount}}/g, p.valorPago.toString())
+            newLogs.unshift({
+              id: `log-auto-${Date.now()}-${Math.random()}`,
+              tenantId: p.tenantId,
+              targetId: student.id,
+              templateId: tpl.id,
+              content,
+              status: 'delivered',
+              channel: 'whatsapp',
+              timestamp: new Date().toISOString(),
+            })
+          }
         }
       })
       newExpenses.forEach((e) => {
@@ -190,7 +245,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
       })
 
       if (changed) {
-        return { ...prev, expenses: newExpenses, payments: newPayments }
+        return {
+          ...prev,
+          expenses: newExpenses,
+          payments: newPayments,
+          communicationLogs: newLogs,
+        }
       }
       return prev
     })
@@ -256,18 +316,51 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         })
       },
       addStudent: (stu) => {
-        setState((prev) => ({
-          ...prev,
-          students: [
-            {
-              ...stu,
-              id: `stu-${Date.now()}`,
-              tenantId: prev.currentUser.tenantId!,
-              avatarUrl: `https://img.usecurling.com/ppl/thumbnail?seed=${Date.now()}`,
-            },
-            ...prev.students,
-          ],
-        }))
+        setState((prev) => {
+          const tenantId = prev.currentUser.tenantId!
+          const newStudentId = `stu-${Date.now()}`
+          const newStudent: Student = {
+            ...stu,
+            id: newStudentId,
+            tenantId,
+            avatarUrl: `https://img.usecurling.com/ppl/thumbnail?seed=${Date.now()}`,
+            whatsappConsent: stu.whatsappConsent ?? true,
+          }
+
+          const logs = [...prev.communicationLogs]
+          const config = prev.whatsappConfigs.find(
+            (c) => c.tenantId === tenantId,
+          )
+          const tpl = prev.communicationTemplates.find(
+            (t) =>
+              t.tenantId === tenantId &&
+              t.triggerEvent === 'new_student' &&
+              t.isActive,
+          )
+
+          if (config?.isConnected && tpl && newStudent.whatsappConsent) {
+            const content = tpl.content.replace(
+              /{{client_name}}/g,
+              newStudent.nome,
+            )
+            logs.unshift({
+              id: `log-${Date.now()}`,
+              tenantId,
+              targetId: newStudentId,
+              templateId: tpl.id,
+              content,
+              status: 'delivered',
+              channel: 'whatsapp',
+              timestamp: new Date().toISOString(),
+            })
+          }
+
+          return {
+            ...prev,
+            students: [newStudent, ...prev.students],
+            communicationLogs: logs,
+          }
+        })
       },
       addPlan: (plan) => {
         setState((prev) => ({
@@ -361,12 +454,52 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       updatePayment: (id, updates) => {
-        setState((prev) => ({
-          ...prev,
-          payments: prev.payments.map((p) =>
-            p.id === id ? { ...p, ...updates } : p,
-          ),
-        }))
+        setState((prev) => {
+          const payment = prev.payments.find((p) => p.id === id)
+          if (!payment) return prev
+
+          let newLogs = prev.communicationLogs
+          if (updates.status === 'overdue' && payment.status !== 'overdue') {
+            const student = prev.students.find((s) => s.id === payment.alunoId)
+            const config = prev.whatsappConfigs.find(
+              (c) => c.tenantId === payment.tenantId,
+            )
+            const tpl = prev.communicationTemplates.find(
+              (t) =>
+                t.tenantId === payment.tenantId &&
+                t.triggerEvent === 'payment_overdue' &&
+                t.isActive,
+            )
+
+            if (student?.whatsappConsent && config?.isConnected && tpl) {
+              const content = tpl.content
+                .replace(/{{client_name}}/g, student.nome)
+                .replace(/{{amount}}/g, payment.valorPago.toString())
+
+              newLogs = [
+                {
+                  id: `log-${Date.now()}-${Math.random()}`,
+                  tenantId: payment.tenantId,
+                  targetId: student.id,
+                  templateId: tpl.id,
+                  content,
+                  status: 'delivered',
+                  channel: 'whatsapp',
+                  timestamp: new Date().toISOString(),
+                },
+                ...newLogs,
+              ]
+            }
+          }
+
+          return {
+            ...prev,
+            payments: prev.payments.map((p) =>
+              p.id === id ? { ...p, ...updates } : p,
+            ),
+            communicationLogs: newLogs,
+          }
+        })
       },
       addExpense: (expense) => {
         setState((prev) => ({
@@ -411,16 +544,151 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
         }))
       },
       addEvaluationResult: (res) => {
+        setState((prev) => {
+          const tenantId = prev.currentUser.tenantId!
+          const newRes = { ...res, id: `res-${Date.now()}`, tenantId }
+
+          const logs = [...prev.communicationLogs]
+          const student = prev.students.find((s) => s.id === res.targetId)
+          const config = prev.whatsappConfigs.find(
+            (c) => c.tenantId === tenantId,
+          )
+          const tpl = prev.communicationTemplates.find(
+            (t) =>
+              t.tenantId === tenantId &&
+              t.triggerEvent === 'evaluation_completed' &&
+              t.isActive,
+          )
+
+          if (student?.whatsappConsent && config?.isConnected && tpl) {
+            const content = tpl.content.replace(
+              /{{client_name}}/g,
+              student.nome,
+            )
+            logs.unshift({
+              id: `log-${Date.now()}`,
+              tenantId,
+              targetId: student.id,
+              templateId: tpl.id,
+              content,
+              status: 'delivered',
+              channel: 'whatsapp',
+              timestamp: new Date().toISOString(),
+            })
+          }
+
+          return {
+            ...prev,
+            evaluationResults: [newRes, ...prev.evaluationResults],
+            communicationLogs: logs,
+          }
+        })
+      },
+      addCommunicationTemplate: (tpl) => {
         setState((prev) => ({
           ...prev,
-          evaluationResults: [
+          communicationTemplates: [
+            ...prev.communicationTemplates,
             {
-              ...res,
-              id: `res-${Date.now()}`,
+              ...tpl,
+              id: `tpl-comm-${Date.now()}`,
               tenantId: prev.currentUser.tenantId!,
             },
-            ...prev.evaluationResults,
           ],
+        }))
+      },
+      updateCommunicationTemplate: (id, updates) => {
+        setState((prev) => ({
+          ...prev,
+          communicationTemplates: prev.communicationTemplates.map((t) =>
+            t.id === id ? { ...t, ...updates } : t,
+          ),
+        }))
+      },
+      deleteCommunicationTemplate: (id) => {
+        setState((prev) => ({
+          ...prev,
+          communicationTemplates: prev.communicationTemplates.filter(
+            (t) => t.id !== id,
+          ),
+        }))
+      },
+      sendCommunication: (targetIds, templateId, customContent) => {
+        setState((prev) => {
+          const tenantId = prev.currentUser.tenantId!
+          const config = prev.whatsappConfigs.find(
+            (c) => c.tenantId === tenantId,
+          )
+          const newLogs: CommunicationLog[] = []
+
+          targetIds.forEach((targetId) => {
+            const student = prev.students.find((s) => s.id === targetId)
+            if (!student) return
+
+            let status: CommunicationLog['status'] = 'delivered'
+            if (!config?.isConnected || !student.whatsappConsent) {
+              status = 'failed'
+            }
+
+            let content = customContent || ''
+            if (templateId) {
+              const tpl = prev.communicationTemplates.find(
+                (t) => t.id === templateId,
+              )
+              if (tpl) {
+                content = tpl.content.replace(/{{client_name}}/g, student.nome)
+              }
+            }
+
+            newLogs.push({
+              id: `log-${Date.now()}-${Math.random()}`,
+              tenantId,
+              targetId,
+              templateId,
+              content,
+              status,
+              channel: 'whatsapp',
+              timestamp: new Date().toISOString(),
+            })
+          })
+
+          return {
+            ...prev,
+            communicationLogs: [...newLogs, ...prev.communicationLogs],
+          }
+        })
+      },
+      updateWhatsAppConfig: (updates) => {
+        setState((prev) => {
+          const tenantId = prev.currentUser.tenantId!
+          const configs = [...prev.whatsappConfigs]
+          const idx = configs.findIndex((c) => c.tenantId === tenantId)
+          if (idx >= 0) {
+            configs[idx] = { ...configs[idx], ...updates }
+          } else {
+            configs.push({
+              tenantId,
+              isConnected: false,
+              phoneNumber: '',
+              apiToken: '',
+              ...updates,
+            })
+          }
+          return { ...prev, whatsappConfigs: configs }
+        })
+      },
+      updateStudentConsent: (id, consent) => {
+        setState((prev) => ({
+          ...prev,
+          students: prev.students.map((s) =>
+            s.id === id
+              ? {
+                  ...s,
+                  whatsappConsent: consent,
+                  consentUpdatedAt: new Date().toISOString(),
+                }
+              : s,
+          ),
         }))
       },
     }),
