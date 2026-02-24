@@ -67,7 +67,9 @@ type AppActions = {
     justification?: string,
   ) => void
   addPayment: (payment: Omit<Payment, 'id' | 'tenantId'>) => void
+  updatePayment: (id: string, updates: Partial<Payment>) => void
   addExpense: (expense: Omit<Expense, 'id' | 'tenantId'>) => void
+  updateExpense: (id: string, updates: Partial<Expense>) => void
 }
 
 type AppStore = AppState & AppActions
@@ -94,12 +96,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     currentLocationId: 'all',
   })
 
-  // Auto generate monthly expenses for locations with fixed monthly rent
+  // Auto generate monthly expenses for locations and recurring revenues
   useEffect(() => {
     setState((prev) => {
       const today = new Date().toISOString().slice(0, 10)
       const currentMonthStr = today.slice(0, 7)
       const newExpenses = [...prev.expenses]
+      const newPayments = [...prev.payments]
+      let changed = false
 
       prev.locations.forEach((loc) => {
         if (
@@ -111,7 +115,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const alreadyBilled = newExpenses.some(
             (e) =>
               e.descricao === desc &&
-              e.data.startsWith(currentMonthStr) &&
+              e.dataVencimento.startsWith(currentMonthStr) &&
               e.tenantId === loc.tenantId,
           )
           if (!alreadyBilled) {
@@ -119,14 +123,58 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               id: `exp-auto-${Date.now()}-${loc.id}`,
               tenantId: loc.tenantId,
               descricao: desc,
+              categoria: 'Aluguel',
+              tipo: 'fixed',
               valor: loc.valor_mensal_fixo,
-              data: today,
+              dataVencimento: `${currentMonthStr}-05`,
+              status: 'pending',
             })
+            changed = true
           }
         }
       })
-      if (newExpenses.length > prev.expenses.length) {
-        return { ...prev, expenses: newExpenses }
+
+      const recurringPayments = prev.payments.filter((p) => p.recorrente)
+      const uniqueKeys = new Set()
+      recurringPayments.forEach((p) => {
+        const key = `${p.alunoId}-${p.descricao}`
+        if (!uniqueKeys.has(key)) {
+          uniqueKeys.add(key)
+          const alreadyBilled = newPayments.some(
+            (np) =>
+              np.alunoId === p.alunoId &&
+              np.descricao === p.descricao &&
+              np.dataVencimento.startsWith(currentMonthStr),
+          )
+          if (!alreadyBilled) {
+            const day = p.dataVencimento.slice(8, 10)
+            newPayments.push({
+              ...p,
+              id: `pay-auto-${Date.now()}-${Math.random()}`,
+              dataVencimento: `${currentMonthStr}-${day}`,
+              dataPagamento: undefined,
+              status: 'pending',
+            })
+            changed = true
+          }
+        }
+      })
+
+      newPayments.forEach((p) => {
+        if (p.status === 'pending' && p.dataVencimento < today) {
+          p.status = 'overdue'
+          changed = true
+        }
+      })
+      newExpenses.forEach((e) => {
+        if (e.status === 'pending' && e.dataVencimento < today) {
+          e.status = 'overdue'
+          changed = true
+        }
+      })
+
+      if (changed) {
+        return { ...prev, expenses: newExpenses, payments: newPayments }
       }
       return prev
     })
@@ -245,19 +293,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             repasse_calculado: repasse,
             lucro_liquido: data.valor_bruto - repasse,
           }
-          const log: AuditLog = {
-            id: `log-${Date.now()}`,
-            tenantId: prev.currentUser.tenantId!,
-            action: 'CREATE',
-            entityType: 'Session',
-            entityId: id,
-            details: 'Created new session',
-            createdAt: new Date().toISOString(),
-          }
           return {
             ...prev,
             sessions: [newSession, ...prev.sessions],
-            auditLogs: [log, ...prev.auditLogs],
           }
         })
       },
@@ -287,21 +325,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           merged.repasse_calculado = repasse
           merged.lucro_liquido = merged.valor_bruto - repasse
 
-          const log: AuditLog = {
-            id: `log-${Date.now()}`,
-            tenantId: prev.currentUser.tenantId!,
-            action: 'UPDATE',
-            entityType: 'Session',
-            entityId: id,
-            details: JSON.stringify(updates),
-            justification,
-            createdAt: new Date().toISOString(),
-          }
-
           return {
             ...prev,
             sessions: prev.sessions.map((s) => (s.id === id ? merged : s)),
-            auditLogs: [log, ...prev.auditLogs],
           }
         })
       },
@@ -318,6 +344,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           ],
         }))
       },
+      updatePayment: (id, updates) => {
+        setState((prev) => ({
+          ...prev,
+          payments: prev.payments.map((p) =>
+            p.id === id ? { ...p, ...updates } : p,
+          ),
+        }))
+      },
       addExpense: (expense) => {
         setState((prev) => ({
           ...prev,
@@ -329,6 +363,14 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             },
             ...prev.expenses,
           ],
+        }))
+      },
+      updateExpense: (id, updates) => {
+        setState((prev) => ({
+          ...prev,
+          expenses: prev.expenses.map((e) =>
+            e.id === id ? { ...e, ...updates } : e,
+          ),
         }))
       },
     }),

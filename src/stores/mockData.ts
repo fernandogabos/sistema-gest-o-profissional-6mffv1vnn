@@ -57,17 +57,25 @@ export type Session = {
 export type Payment = {
   id: string
   tenantId: string
-  alunoId: string
+  alunoId?: string
+  descricao: string
   valorPago: number
-  dataPagamento: string
-  status: 'paid' | 'pending'
+  dataVencimento: string
+  dataPagamento?: string
+  status: 'paid' | 'pending' | 'overdue'
+  recorrente: boolean
 }
 export type Expense = {
   id: string
   tenantId: string
   descricao: string
+  categoria: string
+  tipo: 'fixed' | 'variable'
+  fornecedor?: string
   valor: number
-  data: string
+  dataVencimento: string
+  dataPagamento?: string
+  status: 'paid' | 'pending' | 'overdue'
 }
 export type AuditLog = {
   id: string
@@ -250,25 +258,33 @@ export const mockPayments: Payment[] = [
     id: 'pay-1',
     tenantId: 't-1',
     alunoId: 'stu-1',
+    descricao: 'Mensalidade Padrão',
     valorPago: 350,
+    dataVencimento: `${currentMonth}-05`,
     dataPagamento: `${currentMonth}-05`,
     status: 'paid',
+    recorrente: true,
   },
   {
     id: 'pay-2',
     tenantId: 't-1',
     alunoId: 'stu-2',
+    descricao: 'Trimestral Pro',
     valorPago: 900,
+    dataVencimento: `${currentMonth}-10`,
     dataPagamento: `${currentMonth}-10`,
     status: 'paid',
+    recorrente: true,
   },
   {
     id: 'pay-3',
     tenantId: 't-1',
     alunoId: 'stu-3',
+    descricao: 'Mensalidade Padrão',
     valorPago: 350,
-    dataPagamento: `${currentMonth}-15`,
+    dataVencimento: `${currentMonth}-15`,
     status: 'pending',
+    recorrente: true,
   },
 ]
 
@@ -277,15 +293,34 @@ export const mockExpenses: Expense[] = [
     id: 'exp-1',
     tenantId: 't-1',
     descricao: 'Manutenção Equipamentos',
+    categoria: 'Manutenção',
+    tipo: 'variable',
+    fornecedor: 'FitServices',
     valor: 150,
-    data: `${currentMonth}-10`,
+    dataVencimento: `${currentMonth}-10`,
+    dataPagamento: `${currentMonth}-08`,
+    status: 'paid',
   },
   {
     id: 'exp-2',
     tenantId: 't-1',
     descricao: 'Marketing Digital',
+    categoria: 'Marketing',
+    tipo: 'fixed',
+    fornecedor: 'Agência X',
     valor: 300,
-    data: `${currentMonth}-15`,
+    dataVencimento: `${currentMonth}-15`,
+    status: 'pending',
+  },
+  {
+    id: 'exp-3',
+    tenantId: 't-1',
+    descricao: 'Imposto DAS',
+    categoria: 'Impostos',
+    tipo: 'variable',
+    valor: 120,
+    dataVencimento: `${currentMonth}-20`,
+    status: 'pending',
   },
 ]
 
