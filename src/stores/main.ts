@@ -38,6 +38,17 @@ type AppActions = {
   setCurrentUser: (userId: string) => void
   setTheme: (theme: Partial<Theme>) => void
   setCurrentLocation: (id: string | 'all') => void
+  addLocation: (loc: Omit<Location, 'id' | 'tenantId'>) => void
+  addStudent: (stu: Omit<Student, 'id' | 'tenantId' | 'avatarUrl'>) => void
+  addPlan: (plan: Omit<Plan, 'id' | 'tenantId'>) => void
+  addSession: (
+    session: Omit<
+      Session,
+      'id' | 'tenantId' | 'repasseCalculado' | 'lucroLiquido'
+    >,
+  ) => void
+  addPayment: (payment: Omit<Payment, 'id' | 'tenantId'>) => void
+  addExpense: (expense: Omit<Expense, 'id' | 'tenantId'>) => void
 }
 
 type AppStore = AppState & AppActions
@@ -45,70 +56,131 @@ type AppStore = AppState & AppActions
 const AppContext = createContext<AppStore | null>(null)
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  const [currentUser, setCurrentUserObj] = useState<User>(mockUsers[1]) // Default to professional
-  const [tenants] = useState<Tenant[]>(mockTenants)
-  const [users] = useState<User[]>(mockUsers)
-  const [plans] = useState<Plan[]>(mockPlans)
-  const [locations] = useState<Location[]>(mockLocations)
-  const [students] = useState<Student[]>(mockStudents)
-  const [payments] = useState<Payment[]>(mockPayments)
-  const [expenses] = useState<Expense[]>(mockExpenses)
-  const [sessions] = useState<Session[]>(mockSessions)
-  const [theme, setThemeState] = useState<Theme>({
-    primaryColor: 'blue',
-    name: 'Personal Pro',
-    logoUrl: 'https://img.usecurling.com/i?q=dumbbell&shape=fill&color=azure',
+  const [state, setState] = useState<AppState>({
+    currentUser: mockUsers[1],
+    tenants: mockTenants,
+    users: mockUsers,
+    plans: mockPlans,
+    locations: mockLocations,
+    students: mockStudents,
+    payments: mockPayments,
+    expenses: mockExpenses,
+    sessions: mockSessions,
+    theme: {
+      primaryColor: 'blue',
+      brandName: 'Personal Pro',
+      logoUrl: 'https://img.usecurling.com/i?q=dumbbell&shape=fill&color=azure',
+    },
+    currentLocationId: 'all',
   })
-  const [currentLocationId, setCurrentLocation] = useState<string | 'all'>(
-    'all',
-  )
 
-  const actions = useMemo(
+  const actions = useMemo<AppActions>(
     () => ({
       setCurrentUser: (userId: string) => {
-        const user = users.find((u) => u.id === userId)
-        if (user) {
-          setCurrentUserObj(user)
-          setCurrentLocation('all')
-        }
+        setState((prev) => ({
+          ...prev,
+          currentUser:
+            prev.users.find((u) => u.id === userId) || prev.currentUser,
+          currentLocationId: 'all',
+        }))
       },
-      setTheme: (newTheme: Partial<Theme>) =>
-        setThemeState((prev) => ({ ...prev, ...newTheme })),
-      setCurrentLocation,
+      setTheme: (newTheme: Partial<Theme>) => {
+        setState((prev) => ({ ...prev, theme: { ...prev.theme, ...newTheme } }))
+      },
+      setCurrentLocation: (id: string | 'all') => {
+        setState((prev) => ({ ...prev, currentLocationId: id }))
+      },
+      addLocation: (loc) => {
+        setState((prev) => ({
+          ...prev,
+          locations: [
+            {
+              ...loc,
+              id: `loc-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.locations,
+          ],
+        }))
+      },
+      addStudent: (stu) => {
+        setState((prev) => ({
+          ...prev,
+          students: [
+            {
+              ...stu,
+              id: `stu-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              avatarUrl: `https://img.usecurling.com/ppl/thumbnail?seed=${Date.now()}`,
+            },
+            ...prev.students,
+          ],
+        }))
+      },
+      addPlan: (plan) => {
+        setState((prev) => ({
+          ...prev,
+          plans: [
+            {
+              ...plan,
+              id: `plan-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.plans,
+          ],
+        }))
+      },
+      addSession: (data) => {
+        setState((prev) => {
+          const loc = prev.locations.find((l) => l.id === data.localId)
+          let repasse = 0
+          if (loc) {
+            repasse =
+              loc.repasseTipo === 'percentage'
+                ? data.valorSessao * (loc.repassePercentual / 100)
+                : loc.repasseValorFixo
+          }
+          const newSession: Session = {
+            ...data,
+            id: `ses-${Date.now()}`,
+            tenantId: prev.currentUser.tenantId!,
+            repasseCalculado: repasse,
+            lucroLiquido: data.valorSessao - repasse,
+          }
+          return { ...prev, sessions: [newSession, ...prev.sessions] }
+        })
+      },
+      addPayment: (payment) => {
+        setState((prev) => ({
+          ...prev,
+          payments: [
+            {
+              ...payment,
+              id: `pay-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.payments,
+          ],
+        }))
+      },
+      addExpense: (expense) => {
+        setState((prev) => ({
+          ...prev,
+          expenses: [
+            {
+              ...expense,
+              id: `exp-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.expenses,
+          ],
+        }))
+      },
     }),
-    [users],
+    [],
   )
 
-  const value = useMemo(
-    () => ({
-      currentUser,
-      tenants,
-      users,
-      plans,
-      locations,
-      students,
-      payments,
-      expenses,
-      sessions,
-      theme,
-      currentLocationId,
-      ...actions,
-    }),
-    [
-      currentUser,
-      tenants,
-      users,
-      plans,
-      locations,
-      students,
-      payments,
-      expenses,
-      sessions,
-      theme,
-      currentLocationId,
-      actions,
-    ],
-  )
+  const value = useMemo(() => ({ ...state, ...actions }), [state, actions])
 
   return React.createElement(AppContext.Provider, { value }, children)
 }

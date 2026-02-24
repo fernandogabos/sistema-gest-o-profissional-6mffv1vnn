@@ -55,8 +55,8 @@ export default function Settings() {
               <Label htmlFor="brandName">Nome da Marca</Label>
               <Input
                 id="brandName"
-                value={theme.name}
-                onChange={(e) => setTheme({ name: e.target.value })}
+                value={theme.brandName}
+                onChange={(e) => setTheme({ brandName: e.target.value })}
               />
             </div>
             <div className="space-y-2">
@@ -66,7 +66,7 @@ export default function Settings() {
                 value={theme.logoUrl}
                 onChange={(e) => setTheme({ logoUrl: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground mt-1">
                 Dica: Use uma imagem quadrada ou ícone SVG para melhor ajuste na
                 barra lateral.
               </p>
@@ -90,7 +90,6 @@ export default function Settings() {
                 Object.keys(themeOptions) as Array<keyof typeof themeOptions>
               ).map((key) => {
                 const isActive = theme.primaryColor === key
-                // Convert HSL string to standard CSS readable format for preview
                 const bgStyle = {
                   backgroundColor: `hsl(${themeOptions[key].primary})`,
                 }

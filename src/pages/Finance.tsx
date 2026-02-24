@@ -1,265 +1,275 @@
-import { useMemo } from 'react'
+import { useState, useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from '@/components/ui/chart'
-import {
-  Bar,
-  BarChart,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  ResponsiveContainer,
-} from 'recharts'
+import { ArrowUpRight, ArrowDownRight, Plus } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
 import { formatBRL, formatDate } from '@/lib/formatters'
 
 export default function Finance() {
-  const { payments, expenses, locations, currentLocationId, currentUser } =
+  const { payments, expenses, students, currentUser, addPayment, addExpense } =
     useAppStore()
+  const { toast } = useToast()
 
-  const filteredPayments = useMemo(() => {
-    return payments.filter(
-      (p) =>
-        p.tenantId === currentUser.tenantId &&
-        (currentLocationId === 'all' || p.locationId === currentLocationId),
-    )
-  }, [payments, currentLocationId, currentUser.tenantId])
+  const [openPay, setOpenPay] = useState(false)
+  const [payData, setPayData] = useState({
+    alunoId: '',
+    valorPago: '',
+    dataPagamento: new Date().toISOString().slice(0, 10),
+    status: 'paid' as any,
+  })
 
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter(
-      (e) =>
-        e.tenantId === currentUser.tenantId &&
-        (currentLocationId === 'all' || e.locationId === currentLocationId),
-    )
-  }, [expenses, currentLocationId, currentUser.tenantId])
+  const [openExp, setOpenExp] = useState(false)
+  const [expData, setExpData] = useState({
+    descricao: '',
+    valor: '',
+    data: new Date().toISOString().slice(0, 10),
+  })
 
-  const stats = useMemo(() => {
-    let income = 0
-    let expenseTotal = 0
-    let repasse = 0
+  const filteredPayments = payments.filter(
+    (p) => p.tenantId === currentUser.tenantId,
+  )
+  const filteredExpenses = expenses.filter(
+    (e) => e.tenantId === currentUser.tenantId,
+  )
+  const tenantStudents = students.filter(
+    (s) => s.tenantId === currentUser.tenantId,
+  )
 
-    filteredPayments
-      .filter((p) => p.status === 'paid')
-      .forEach((p) => {
-        income += p.amount
-      })
-    filteredExpenses.forEach((e) => {
-      expenseTotal += e.amount
-    })
+  const handleSavePayment = () => {
+    if (!payData.alunoId || !payData.valorPago) return
+    addPayment({ ...payData, valorPago: Number(payData.valorPago) })
+    setOpenPay(false)
+    toast({ title: 'Pagamento registrado' })
+  }
 
-    const locTotals: Record<string, number> = {}
-    filteredPayments
-      .filter((p) => p.status === 'paid')
-      .forEach((p) => {
-        locTotals[p.locationId] = (locTotals[p.locationId] || 0) + p.amount
-      })
-
-    locations
-      .filter((l) => l.tenantId === currentUser.tenantId)
-      .forEach((loc) => {
-        if (currentLocationId === 'all' || loc.id === currentLocationId) {
-          if (loc.rule.type === 'percentage') {
-            repasse += (locTotals[loc.id] || 0) * (loc.rule.value / 100)
-          } else if (locTotals[loc.id] && locTotals[loc.id] > 0) {
-            repasse += loc.rule.value
-          }
-        }
-      })
-
-    const net = income - expenseTotal - repasse
-    return { income, expense: expenseTotal, repasse, net }
-  }, [
-    filteredPayments,
-    filteredExpenses,
-    locations,
-    currentLocationId,
-    currentUser.tenantId,
-  ])
-
-  const chartData = useMemo(() => {
-    return [
-      { name: 'Nov', income: stats.income * 0.8, expense: stats.expense * 0.9 },
-      { name: 'Dez', income: stats.income * 0.9, expense: stats.expense * 1.1 },
-      { name: 'Jan', income: stats.income, expense: stats.expense },
-      { name: 'Fev', income: stats.income * 1.1, expense: stats.expense * 0.8 },
-    ]
-  }, [stats])
-
-  const recentTxns = useMemo(() => {
-    const combined = [
-      ...filteredPayments.map((p) => ({
-        id: p.id,
-        desc: p.description,
-        amount: p.amount,
-        date: p.date,
-        type: 'income' as const,
-      })),
-      ...filteredExpenses.map((e) => ({
-        id: e.id,
-        desc: e.description,
-        amount: e.amount,
-        date: e.date,
-        type: 'expense' as const,
-      })),
-    ]
-    return combined
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 8)
-  }, [filteredPayments, filteredExpenses])
+  const handleSaveExpense = () => {
+    if (!expData.descricao || !expData.valor) return
+    addExpense({ ...expData, valor: Number(expData.valor) })
+    setOpenExp(false)
+    toast({ title: 'Despesa registrada' })
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Financeiro</h1>
         <p className="text-muted-foreground mt-1">
-          Gestão de receitas, despesas e cálculo de repasses.
+          Acompanhamento de pagamentos de alunos e despesas.
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Receita Bruta</CardTitle>
-            <ArrowUpRight className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-emerald-600">
-              {formatBRL(stats.income)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-            <ArrowDownRight className="h-4 w-4 text-rose-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-rose-600">
-              {formatBRL(stats.expense)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Repasses (Estimativa)
-            </CardTitle>
-            <Activity className="h-4 w-4 text-amber-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-amber-600">
-              {formatBRL(stats.repasse)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Baseado nas regras dos locais
-            </p>
-          </CardContent>
-        </Card>
-        <Card className="bg-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">
-              Receita Líquida
-            </CardTitle>
-            <ArrowUpRight className="h-4 w-4 opacity-70" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatBRL(stats.net)}</div>
-          </CardContent>
-        </Card>
-      </div>
+      <Tabs defaultValue="payments" className="w-full">
+        <div className="flex justify-between items-center mb-6">
+          <TabsList>
+            <TabsTrigger value="payments">Pagamentos</TabsTrigger>
+            <TabsTrigger value="expenses">Despesas</TabsTrigger>
+          </TabsList>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Fluxo de Caixa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                income: { label: 'Receitas', color: 'hsl(var(--chart-2))' },
-                expense: {
-                  label: 'Despesas',
-                  color: 'hsl(var(--destructive))',
-                },
-              }}
-              className="h-[300px] w-full"
-            >
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={chartData}
-                  margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-                >
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" />
-                  <XAxis
-                    dataKey="name"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                    tickFormatter={(v) => `R$${v}`}
-                  />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar
-                    dataKey="income"
-                    fill="var(--color-income)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                  <Bar
-                    dataKey="expense"
-                    fill="var(--color-expense)"
-                    radius={[4, 4, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-1 flex flex-col">
-          <CardHeader>
-            <CardTitle>Transações Recentes</CardTitle>
-          </CardHeader>
-          <CardContent className="flex-1 overflow-auto">
-            <div className="space-y-4">
-              {recentTxns.map((txn) => (
-                <div
-                  key={txn.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
-                >
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none">
-                      {txn.desc}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(txn.date)}
-                    </p>
+        <TabsContent value="payments" className="space-y-4">
+          <div className="flex justify-end">
+            <Dialog open={openPay} onOpenChange={setOpenPay}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="mr-2 h-4 w-4" /> Registrar Pagamento
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Pagamento</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>Aluno</Label>
+                    <Select
+                      value={payData.alunoId}
+                      onValueChange={(v) =>
+                        setPayData((d) => ({ ...d, alunoId: v }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o aluno" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {tenantStudents.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <Badge
-                    variant={txn.type === 'income' ? 'outline' : 'secondary'}
-                    className={
-                      txn.type === 'income'
-                        ? 'text-emerald-600 border-emerald-200'
-                        : 'text-rose-600'
-                    }
-                  >
-                    {txn.type === 'income' ? '+' : '-'}
-                    {formatBRL(txn.amount)}
-                  </Badge>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <Input
+                      type="number"
+                      value={payData.valorPago}
+                      onChange={(e) =>
+                        setPayData((d) => ({ ...d, valorPago: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data do Pagamento</Label>
+                    <Input
+                      type="date"
+                      value={payData.dataPagamento}
+                      onChange={(e) =>
+                        setPayData((d) => ({
+                          ...d,
+                          dataPagamento: e.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <Button className="w-full mt-4" onClick={handleSavePayment}>
+                    Salvar Pagamento
+                  </Button>
                 </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {filteredPayments.map((p) => {
+                  const stu = students.find((s) => s.id === p.alunoId)
+                  return (
+                    <div
+                      key={p.id}
+                      className="p-4 flex justify-between items-center hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="bg-emerald-100 p-2 rounded-full text-emerald-600">
+                          <ArrowUpRight className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{stu?.nome}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(p.dataPagamento)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-emerald-600">
+                          +{formatBRL(p.valorPago)}
+                        </p>
+                        <Badge
+                          variant={
+                            p.status === 'paid' ? 'default' : 'secondary'
+                          }
+                          className="mt-1"
+                        >
+                          {p.status === 'paid' ? 'Pago' : 'Pendente'}
+                        </Badge>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="expenses" className="space-y-4">
+          <div className="flex justify-end">
+            <Dialog open={openExp} onOpenChange={setOpenExp}>
+              <DialogTrigger asChild>
+                <Button variant="destructive">
+                  <Plus className="mr-2 h-4 w-4" /> Registrar Despesa
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Nova Despesa</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>Descrição</Label>
+                    <Input
+                      value={expData.descricao}
+                      onChange={(e) =>
+                        setExpData((d) => ({ ...d, descricao: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Valor (R$)</Label>
+                    <Input
+                      type="number"
+                      value={expData.valor}
+                      onChange={(e) =>
+                        setExpData((d) => ({ ...d, valor: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Data</Label>
+                    <Input
+                      type="date"
+                      value={expData.data}
+                      onChange={(e) =>
+                        setExpData((d) => ({ ...d, data: e.target.value }))
+                      }
+                    />
+                  </div>
+                  <Button className="w-full mt-4" onClick={handleSaveExpense}>
+                    Salvar Despesa
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+          <Card>
+            <CardContent className="p-0">
+              <div className="divide-y">
+                {filteredExpenses.map((e) => (
+                  <div
+                    key={e.id}
+                    className="p-4 flex justify-between items-center hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="bg-rose-100 p-2 rounded-full text-rose-600">
+                        <ArrowDownRight className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium">{e.descricao}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(e.data)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-rose-600">
+                        -{formatBRL(e.valor)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -12,10 +12,10 @@ export function MasterDashboard() {
     const totalUsers = users.length
     const globalPlans = plans.filter((p) => p.isGlobal).length
 
-    // Simulate system revenue as 5% of all gross payments processed
+    // Revenue across ALL tenants
     const gmv = payments
       .filter((p) => p.status === 'paid')
-      .reduce((sum, p) => sum + p.amount, 0)
+      .reduce((sum, p) => sum + p.valorPago, 0)
     const systemRevenue = gmv * 0.05
 
     return { activeTenants, totalUsers, globalPlans, gmv, systemRevenue }
@@ -105,12 +105,12 @@ export function MasterDashboard() {
                     className="flex justify-between items-center border-b pb-4 last:border-0 last:pb-0"
                   >
                     <div>
-                      <p className="font-medium">{p.name}</p>
-                      <p className="text-xs text-muted-foreground capitalize">
-                        Cobrança {p.interval}
+                      <p className="font-medium">{p.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {p.frequenciaSemanal}x na semana
                       </p>
                     </div>
-                    <div className="font-bold">{formatBRL(p.price)}</div>
+                    <div className="font-bold">{formatBRL(p.valor)}</div>
                   </div>
                 ))}
             </div>

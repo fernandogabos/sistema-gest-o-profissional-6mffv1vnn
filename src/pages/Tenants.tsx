@@ -38,9 +38,17 @@ export default function Tenants() {
                     {tUsers} usuários
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-4">
-                  Criado em {formatDate(t.createdAt)}
-                </p>
+                <div className="mt-4 space-y-1">
+                  <p className="text-xs text-muted-foreground">
+                    Plano:{' '}
+                    <span className="font-semibold capitalize">
+                      {t.planType}
+                    </span>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Criado em {formatDate(t.createdAt)}
+                  </p>
+                </div>
               </CardContent>
             </Card>
           )

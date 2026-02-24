@@ -13,7 +13,6 @@ export default function Layout() {
     themeOptions.blue
   const styleVars = {
     '--primary': activeTheme.primary,
-    // Provide a subtle secondary tone based on primary for highlights
     '--secondary': activeTheme.secondary,
   } as React.CSSProperties
 

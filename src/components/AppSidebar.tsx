@@ -8,6 +8,7 @@ import {
   Settings,
   Building2,
   Package,
+  Activity,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -36,27 +37,28 @@ export function AppSidebar() {
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Alunos', url: '/alunos', icon: Users },
     { title: 'Locais', url: '/locais', icon: MapPin },
+    { title: 'Sessões', url: '/sessoes', icon: Activity },
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },
     { title: 'Treinos', url: '/treinos', icon: Dumbbell },
     { title: 'Planos', url: '/planos', icon: Package },
     { title: 'Configurações', url: '/configuracoes', icon: Settings },
   ]
 
-  const navItems = currentUser.role === 'master' ? masterItems : profItems
+  const navItems = currentUser.role === 'master_admin' ? masterItems : profItems
 
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-border/50">
         <div className="flex items-center gap-2 px-4 w-full">
-          {currentUser.role !== 'master' ? (
+          {currentUser.role !== 'master_admin' ? (
             <>
               <img
                 src={theme.logoUrl}
                 alt="Logo"
-                className="w-8 h-8 rounded-md bg-primary/10 p-1"
+                className="w-8 h-8 rounded-md bg-primary/10 p-1 object-contain"
               />
               <span className="font-semibold text-lg truncate">
-                {theme.name}
+                {theme.brandName}
               </span>
             </>
           ) : (

@@ -10,7 +10,6 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Student } from '@/stores/mockData'
-import { formatDate } from '@/lib/formatters'
 import useAppStore from '@/stores/main'
 
 interface Props {
@@ -20,12 +19,10 @@ interface Props {
 }
 
 export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
-  const { locations, plans } = useAppStore()
+  const { plans } = useAppStore()
 
   if (!student) return null
 
-  const locationName =
-    locations.find((l) => l.id === student.locationId)?.name || 'Desconhecido'
   const plan = plans.find((p) => p.id === student.planId)
 
   return (
@@ -36,11 +33,11 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
             <Avatar className="h-16 w-16 border-2 border-primary/20">
               <AvatarImage src={student.avatarUrl} />
               <AvatarFallback>
-                {student.name.substring(0, 2).toUpperCase()}
+                {student.nome.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div>
-              <SheetTitle className="text-2xl">{student.name}</SheetTitle>
+              <SheetTitle className="text-2xl">{student.nome}</SheetTitle>
               <SheetDescription className="flex items-center gap-2 mt-1">
                 <Badge
                   variant={
@@ -57,17 +54,15 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
                       ? 'Inadimplente'
                       : 'Inativo'}
                 </Badge>
-                <span>Membro desde {formatDate(student.joinDate)}</span>
               </SheetDescription>
             </div>
           </div>
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
-            <TabsTrigger value="workouts">Treinos</TabsTrigger>
-            <TabsTrigger value="finance">Financeiro</TabsTrigger>
+            <TabsTrigger value="contact">Contato</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 animate-fade-in">
@@ -79,59 +74,29 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
               </CardHeader>
               <CardContent>
                 <p className="text-lg font-medium">
-                  {plan?.name || 'Sem plano'}
+                  {plan?.nome || 'Sem plano'}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Local: {locationName}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-muted-foreground">
-                  Última Avaliação
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground italic">
-                  Nenhuma avaliação recente registrada.
-                </p>
+                {plan && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {plan.frequenciaSemanal}x por semana
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
-          <TabsContent value="workouts" className="animate-fade-in">
+          <TabsContent value="contact" className="animate-fade-in space-y-4">
             <Card>
-              <CardContent className="pt-6 text-center text-muted-foreground">
-                <p>Nenhum treino ativo no momento.</p>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="finance" className="animate-fade-in">
-            <Card>
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-sm">Status Pagamento</span>
-                  {student.status === 'delinquent' ? (
-                    <Badge
-                      variant="outline"
-                      className="text-rose-600 bg-rose-50 border-rose-200"
-                    >
-                      Em atraso
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-green-600 bg-green-50 border-green-200"
-                    >
-                      Em dia
-                    </Badge>
-                  )}
+              <CardContent className="pt-6 space-y-4">
+                <div>
+                  <span className="text-sm text-muted-foreground">E-mail</span>
+                  <p className="font-medium">{student.email}</p>
                 </div>
-                <div className="flex justify-between items-center py-2 border-b">
-                  <span className="text-sm">Próximo Vencimento</span>
-                  <span className="text-sm font-medium">10/03/2024</span>
+                <div>
+                  <span className="text-sm text-muted-foreground">
+                    Telefone
+                  </span>
+                  <p className="font-medium">{student.telefone}</p>
                 </div>
               </CardContent>
             </Card>

@@ -5,10 +5,9 @@ import useAppStore from '@/stores/main'
 export default function Index() {
   const { currentUser } = useAppStore()
 
-  if (currentUser.role === 'master') {
+  if (currentUser.role === 'master_admin') {
     return <MasterDashboard />
   }
 
-  // Fallback for professional, admin or student
   return <ProfessionalDashboard />
 }

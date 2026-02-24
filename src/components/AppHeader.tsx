@@ -1,4 +1,4 @@
-import { Bell, UserCircle } from 'lucide-react'
+import { Bell } from 'lucide-react'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import {
   Select,
@@ -30,7 +30,7 @@ export function AppHeader() {
         <SidebarTrigger className="-ml-1" />
         <div className="hidden md:block w-px h-6 bg-border mx-2" />
 
-        {currentUser.role !== 'master' && (
+        {currentUser.role !== 'master_admin' && (
           <Select value={currentLocationId} onValueChange={setCurrentLocation}>
             <SelectTrigger className="w-[200px] border-none shadow-none focus:ring-0 font-medium">
               <SelectValue placeholder="Selecione o Local" />
@@ -56,7 +56,7 @@ export function AppHeader() {
             <SelectContent align="end">
               {users.map((u) => (
                 <SelectItem key={u.id} value={u.id}>
-                  {u.name} ({u.role})
+                  {u.fullName} ({u.role})
                 </SelectItem>
               ))}
             </SelectContent>
@@ -74,7 +74,7 @@ export function AppHeader() {
         <div className="h-8 w-8 rounded-full overflow-hidden border">
           <img
             src={currentUser.avatarUrl}
-            alt={currentUser.name}
+            alt={currentUser.fullName}
             className="object-cover w-full h-full"
           />
         </div>
