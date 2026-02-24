@@ -14,6 +14,7 @@ import Settings from './pages/Settings'
 import Tenants from './pages/Tenants'
 import Plans from './pages/Plans'
 import Sessions from './pages/Sessions'
+import Evaluations from './pages/Evaluations'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/locais" element={<Locations />} />
             <Route path="/alunos" element={<Students />} />
+            <Route path="/avaliacoes" element={<Evaluations />} />
             <Route path="/financeiro" element={<Finance />} />
             <Route path="/sessoes" element={<Sessions />} />
             <Route path="/treinos" element={<Workouts />} />

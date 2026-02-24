@@ -9,6 +9,7 @@ import {
   Building2,
   Package,
   Activity,
+  ClipboardCheck,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -36,6 +37,7 @@ export function AppSidebar() {
   const profItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Alunos', url: '/alunos', icon: Users },
+    { title: 'Avaliações', url: '/avaliacoes', icon: ClipboardCheck },
     { title: 'Locais', url: '/locais', icon: MapPin },
     { title: 'Sessões', url: '/sessoes', icon: Activity },
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },

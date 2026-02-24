@@ -94,6 +94,28 @@ export type Theme = {
   tenantId?: string
 }
 
+export type EvaluationTemplate = {
+  id: string
+  tenantId: string
+  name: string
+  description: string
+  type: 'student' | 'employee' | 'service'
+  status: 'active' | 'inactive'
+  criteria: { id: string; name: string; weight: number }[]
+}
+
+export type EvaluationResult = {
+  id: string
+  tenantId: string
+  templateId: string
+  templateName: string
+  targetId: string
+  date: string
+  totalScore: number
+  classification: 'Critical' | 'Low' | 'Medium' | 'High'
+  scores: { criterionId: string; name: string; weight: number; value: number }[]
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -206,18 +228,6 @@ export const mockLocations: Location[] = [
     modelo_cobranca: 'Mensal',
     ativo: true,
   },
-  {
-    id: 'loc-3',
-    tenantId: 't-1',
-    name: 'Condomínio Prime',
-    address: 'Av. das Flores, 50',
-    tipo_repasse: 'none',
-    percentual_repasse: 0,
-    valor_fixo_por_sessao: 0,
-    valor_mensal_fixo: 0,
-    modelo_cobranca: 'Avulso',
-    ativo: true,
-  },
 ]
 
 export const mockStudents: Student[] = [
@@ -241,16 +251,6 @@ export const mockStudents: Student[] = [
     status: 'active',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=2',
   },
-  {
-    id: 'stu-3',
-    tenantId: 't-1',
-    nome: 'Rafael Costa',
-    email: 'rafael@email.com',
-    telefone: '11777777777',
-    planId: 'p-1',
-    status: 'delinquent',
-    avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=3',
-  },
 ]
 
 export const mockPayments: Payment[] = [
@@ -263,27 +263,6 @@ export const mockPayments: Payment[] = [
     dataVencimento: `${currentMonth}-05`,
     dataPagamento: `${currentMonth}-05`,
     status: 'paid',
-    recorrente: true,
-  },
-  {
-    id: 'pay-2',
-    tenantId: 't-1',
-    alunoId: 'stu-2',
-    descricao: 'Trimestral Pro',
-    valorPago: 900,
-    dataVencimento: `${currentMonth}-10`,
-    dataPagamento: `${currentMonth}-10`,
-    status: 'paid',
-    recorrente: true,
-  },
-  {
-    id: 'pay-3',
-    tenantId: 't-1',
-    alunoId: 'stu-3',
-    descricao: 'Mensalidade Padrão',
-    valorPago: 350,
-    dataVencimento: `${currentMonth}-15`,
-    status: 'pending',
     recorrente: true,
   },
 ]
@@ -301,27 +280,6 @@ export const mockExpenses: Expense[] = [
     dataPagamento: `${currentMonth}-08`,
     status: 'paid',
   },
-  {
-    id: 'exp-2',
-    tenantId: 't-1',
-    descricao: 'Marketing Digital',
-    categoria: 'Marketing',
-    tipo: 'fixed',
-    fornecedor: 'Agência X',
-    valor: 300,
-    dataVencimento: `${currentMonth}-15`,
-    status: 'pending',
-  },
-  {
-    id: 'exp-3',
-    tenantId: 't-1',
-    descricao: 'Imposto DAS',
-    categoria: 'Impostos',
-    tipo: 'variable',
-    valor: 120,
-    dataVencimento: `${currentMonth}-20`,
-    status: 'pending',
-  },
 ]
 
 export const mockSessions: Session[] = [
@@ -336,27 +294,77 @@ export const mockSessions: Session[] = [
     lucro_liquido: 70,
     status: 'realized',
   },
+]
+
+export const mockEvaluationTemplates: EvaluationTemplate[] = [
   {
-    id: 'ses-2',
+    id: 'tpl-1',
     tenantId: 't-1',
-    alunoId: 'stu-2',
-    localId: 'loc-2',
-    data: today,
-    valor_bruto: 150,
-    repasse_calculado: 50,
-    lucro_liquido: 100,
-    status: 'realized',
+    name: 'Avaliação Física Geral',
+    description: 'Métricas de desempenho e composição',
+    type: 'student',
+    status: 'active',
+    criteria: [
+      { id: 'crit-1', name: 'Força Funcional', weight: 3 },
+      { id: 'crit-2', name: 'Resistência Aeróbica', weight: 3 },
+      { id: 'crit-3', name: 'Flexibilidade', weight: 2 },
+      { id: 'crit-4', name: 'Composição Corporal', weight: 2 },
+    ],
+  },
+]
+
+export const mockEvaluationResults: EvaluationResult[] = [
+  {
+    id: 'res-1',
+    tenantId: 't-1',
+    templateId: 'tpl-1',
+    templateName: 'Avaliação Física Geral',
+    targetId: 'stu-1',
+    date: '2023-10-01',
+    totalScore: 55,
+    classification: 'Low',
+    scores: [
+      { criterionId: 'crit-1', name: 'Força Funcional', weight: 3, value: 50 },
+      {
+        criterionId: 'crit-2',
+        name: 'Resistência Aeróbica',
+        weight: 3,
+        value: 60,
+      },
+      { criterionId: 'crit-3', name: 'Flexibilidade', weight: 2, value: 40 },
+      {
+        criterionId: 'crit-4',
+        name: 'Composição Corporal',
+        weight: 2,
+        value: 70,
+      },
+    ],
   },
   {
-    id: 'ses-3',
+    id: 'res-2',
     tenantId: 't-1',
-    alunoId: 'stu-1',
-    localId: 'loc-3',
-    data: today,
-    valor_bruto: 120,
-    repasse_calculado: 0,
-    lucro_liquido: 120,
-    status: 'realized',
+    templateId: 'tpl-1',
+    templateName: 'Avaliação Física Geral',
+    targetId: 'stu-1',
+    date: '2023-11-01',
+    totalScore: 72,
+    classification: 'Medium',
+    scores: [
+      { criterionId: 'crit-1', name: 'Força Funcional', weight: 3, value: 70 },
+      {
+        criterionId: 'crit-2',
+        name: 'Resistência Aeróbica',
+        weight: 3,
+        value: 75,
+      },
+      { criterionId: 'crit-3', name: 'Flexibilidade', weight: 2, value: 60 },
+      {
+        criterionId: 'crit-4',
+        name: 'Composição Corporal',
+        weight: 2,
+        value: 80,
+      },
+    ],
   },
 ]
 

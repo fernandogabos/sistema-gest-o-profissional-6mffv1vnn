@@ -16,6 +16,8 @@ import {
   Session,
   Theme,
   AuditLog,
+  EvaluationTemplate,
+  EvaluationResult,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -25,6 +27,8 @@ import {
   mockExpenses,
   mockSessions,
   mockAuditLogs,
+  mockEvaluationTemplates,
+  mockEvaluationResults,
   themeOptions,
 } from './mockData'
 
@@ -39,6 +43,8 @@ type AppState = {
   expenses: Expense[]
   sessions: Session[]
   auditLogs: AuditLog[]
+  evaluationTemplates: EvaluationTemplate[]
+  evaluationResults: EvaluationResult[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -70,6 +76,14 @@ type AppActions = {
   updatePayment: (id: string, updates: Partial<Payment>) => void
   addExpense: (expense: Omit<Expense, 'id' | 'tenantId'>) => void
   updateExpense: (id: string, updates: Partial<Expense>) => void
+  addEvaluationTemplate: (
+    tpl: Omit<EvaluationTemplate, 'id' | 'tenantId'>,
+  ) => void
+  updateEvaluationTemplate: (
+    id: string,
+    updates: Partial<EvaluationTemplate>,
+  ) => void
+  addEvaluationResult: (res: Omit<EvaluationResult, 'id' | 'tenantId'>) => void
 }
 
 type AppStore = AppState & AppActions
@@ -88,6 +102,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     expenses: mockExpenses,
     sessions: mockSessions,
     auditLogs: mockAuditLogs,
+    evaluationTemplates: mockEvaluationTemplates,
+    evaluationResults: mockEvaluationResults,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -371,6 +387,40 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           expenses: prev.expenses.map((e) =>
             e.id === id ? { ...e, ...updates } : e,
           ),
+        }))
+      },
+      addEvaluationTemplate: (tpl) => {
+        setState((prev) => ({
+          ...prev,
+          evaluationTemplates: [
+            {
+              ...tpl,
+              id: `tpl-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.evaluationTemplates,
+          ],
+        }))
+      },
+      updateEvaluationTemplate: (id, updates) => {
+        setState((prev) => ({
+          ...prev,
+          evaluationTemplates: prev.evaluationTemplates.map((t) =>
+            t.id === id ? { ...t, ...updates } : t,
+          ),
+        }))
+      },
+      addEvaluationResult: (res) => {
+        setState((prev) => ({
+          ...prev,
+          evaluationResults: [
+            {
+              ...res,
+              id: `res-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.evaluationResults,
+          ],
         }))
       },
     }),
