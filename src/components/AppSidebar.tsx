@@ -6,6 +6,8 @@ import {
   CircleDollarSign,
   Dumbbell,
   Settings,
+  Building2,
+  Package,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -22,27 +24,47 @@ import useAppStore from '@/stores/main'
 
 export function AppSidebar() {
   const location = useLocation()
-  const { theme } = useAppStore()
+  const { theme, currentUser } = useAppStore()
 
-  const navItems = [
+  const masterItems = [
+    { title: 'Painel Master', url: '/', icon: LayoutDashboard },
+    { title: 'Inquilinos', url: '/inquilinos', icon: Building2 },
+    { title: 'Planos Globais', url: '/planos', icon: Package },
+  ]
+
+  const profItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Alunos', url: '/alunos', icon: Users },
     { title: 'Locais', url: '/locais', icon: MapPin },
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },
     { title: 'Treinos', url: '/treinos', icon: Dumbbell },
+    { title: 'Planos', url: '/planos', icon: Package },
     { title: 'Configurações', url: '/configuracoes', icon: Settings },
   ]
+
+  const navItems = currentUser.role === 'master' ? masterItems : profItems
 
   return (
     <Sidebar variant="inset">
       <SidebarHeader className="h-16 flex items-center justify-center border-b border-border/50">
         <div className="flex items-center gap-2 px-4 w-full">
-          <img
-            src={theme.logoUrl}
-            alt="Logo"
-            className="w-8 h-8 rounded-md bg-primary/10 p-1"
-          />
-          <span className="font-semibold text-lg truncate">{theme.name}</span>
+          {currentUser.role !== 'master' ? (
+            <>
+              <img
+                src={theme.logoUrl}
+                alt="Logo"
+                className="w-8 h-8 rounded-md bg-primary/10 p-1"
+              />
+              <span className="font-semibold text-lg truncate">
+                {theme.name}
+              </span>
+            </>
+          ) : (
+            <div className="flex items-center gap-2 text-primary">
+              <Settings className="w-6 h-6" />
+              <span className="font-bold text-lg">Plataforma Admin</span>
+            </div>
+          )}
         </div>
       </SidebarHeader>
       <SidebarContent>

@@ -18,20 +18,33 @@ import { Student } from '@/stores/mockData'
 import useAppStore from '@/stores/main'
 
 export default function Students() {
-  const { students, locations, currentLocationId } = useAppStore()
+  const { students, locations, plans, currentLocationId, currentUser } =
+    useAppStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
 
   const filteredStudents = useMemo(() => {
     return students.filter((s) => {
+      const isMyTenant = s.tenantId === currentUser.tenantId
       const matchesSearch = s.name
         .toLowerCase()
         .includes(searchTerm.toLowerCase())
       const matchesLocation =
         currentLocationId === 'all' || s.locationId === currentLocationId
-      return matchesSearch && matchesLocation
+      return isMyTenant && matchesSearch && matchesLocation
     })
-  }, [students, searchTerm, currentLocationId])
+  }, [students, searchTerm, currentLocationId, currentUser.tenantId])
+
+  const getStatusBadge = (status: Student['status']) => {
+    switch (status) {
+      case 'active':
+        return <Badge variant="default">Ativo</Badge>
+      case 'delinquent':
+        return <Badge variant="destructive">Inadimplente</Badge>
+      default:
+        return <Badge variant="secondary">Inativo</Badge>
+    }
+  }
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
@@ -43,8 +56,7 @@ export default function Students() {
           </p>
         </div>
         <Button className="shrink-0">
-          <Plus className="mr-2 h-4 w-4" />
-          Adicionar Aluno
+          <Plus className="mr-2 h-4 w-4" /> Adicionar Aluno
         </Button>
       </div>
 
@@ -89,6 +101,9 @@ export default function Students() {
                   const locName = locations.find(
                     (l) => l.id === student.locationId,
                   )?.name
+                  const planName = plans.find(
+                    (p) => p.id === student.planId,
+                  )?.name
                   return (
                     <TableRow
                       key={student.id}
@@ -106,22 +121,11 @@ export default function Students() {
                           <div className="font-medium">{student.name}</div>
                         </div>
                       </TableCell>
-                      <TableCell>{student.plan}</TableCell>
+                      <TableCell>{planName}</TableCell>
                       <TableCell className="text-muted-foreground">
                         {locName}
                       </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            student.status === 'active'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                          className="font-normal"
-                        >
-                          {student.status === 'active' ? 'Ativo' : 'Inativo'}
-                        </Badge>
-                      </TableCell>
+                      <TableCell>{getStatusBadge(student.status)}</TableCell>
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm">
                           Ver Perfil

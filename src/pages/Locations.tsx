@@ -12,7 +12,11 @@ import useAppStore from '@/stores/main'
 import { formatBRL } from '@/lib/formatters'
 
 export default function Locations() {
-  const { locations } = useAppStore()
+  const { locations, currentUser } = useAppStore()
+
+  const userLocations = locations.filter(
+    (l) => l.tenantId === currentUser.tenantId,
+  )
 
   return (
     <div className="p-6 md:p-8 max-w-6xl mx-auto space-y-6 animate-fade-in">
@@ -32,7 +36,7 @@ export default function Locations() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        {locations.map((loc) => (
+        {userLocations.map((loc) => (
           <Card
             key={loc.id}
             className="transition-all hover:shadow-md hover:-translate-y-1 duration-200 cursor-pointer group"
@@ -47,22 +51,24 @@ export default function Locations() {
                 </Badge>
               </div>
               <CardTitle className="mt-4 text-xl">{loc.name}</CardTitle>
-              <CardDescription>Regra de Repasse</CardDescription>
+              <CardDescription>Regra de Repasse Financeiro</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="bg-muted/50 p-3 rounded-md">
                 <p className="text-sm font-medium flex justify-between">
                   <span className="text-muted-foreground">Tipo:</span>
                   <span className="capitalize">
-                    {loc.splitType === 'fixed' ? 'Taxa Fixa' : 'Porcentagem'}
+                    {loc.rule.type === 'fixed'
+                      ? 'Taxa Fixa'
+                      : 'Porcentagem (%)'}
                   </span>
                 </p>
                 <p className="text-sm font-medium flex justify-between mt-2">
                   <span className="text-muted-foreground">Valor:</span>
                   <span className="text-primary font-bold">
-                    {loc.splitType === 'fixed'
-                      ? formatBRL(loc.splitValue)
-                      : `${loc.splitValue}%`}
+                    {loc.rule.type === 'fixed'
+                      ? formatBRL(loc.rule.value)
+                      : `${loc.rule.value}%`}
                   </span>
                 </p>
               </div>

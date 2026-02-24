@@ -11,6 +11,8 @@ import Students from './pages/Students'
 import Finance from './pages/Finance'
 import Workouts from './pages/Workouts'
 import Settings from './pages/Settings'
+import Tenants from './pages/Tenants'
+import Plans from './pages/Plans'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -29,6 +31,8 @@ const App = () => (
             <Route path="/financeiro" element={<Finance />} />
             <Route path="/treinos" element={<Workouts />} />
             <Route path="/configuracoes" element={<Settings />} />
+            <Route path="/inquilinos" element={<Tenants />} />
+            <Route path="/planos" element={<Plans />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

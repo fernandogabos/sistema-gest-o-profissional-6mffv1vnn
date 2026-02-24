@@ -1,29 +1,43 @@
 import React, { createContext, useContext, useState, useMemo } from 'react'
 import {
+  Tenant,
+  User,
+  Plan,
   Location,
   Student,
-  Transaction,
+  Payment,
+  Expense,
+  Session,
   Theme,
+  mockTenants,
+  mockUsers,
+  mockPlans,
   mockLocations,
   mockStudents,
-  mockTransactions,
+  mockPayments,
+  mockExpenses,
+  mockSessions,
   themeOptions,
 } from './mockData'
 
 type AppState = {
+  currentUser: User
+  tenants: Tenant[]
+  users: User[]
+  plans: Plan[]
   locations: Location[]
   students: Student[]
-  transactions: Transaction[]
+  payments: Payment[]
+  expenses: Expense[]
+  sessions: Session[]
   theme: Theme
   currentLocationId: string | 'all'
-  userRole: 'professional' | 'student' | 'master'
 }
 
 type AppActions = {
+  setCurrentUser: (userId: string) => void
   setTheme: (theme: Partial<Theme>) => void
   setCurrentLocation: (id: string | 'all') => void
-  addTransaction: (txn: Omit<Transaction, 'id'>) => void
-  addStudent: (student: Omit<Student, 'id' | 'joinDate' | 'avatarUrl'>) => void
 }
 
 type AppStore = AppState & AppActions
@@ -31,10 +45,15 @@ type AppStore = AppState & AppActions
 const AppContext = createContext<AppStore | null>(null)
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
+  const [currentUser, setCurrentUserObj] = useState<User>(mockUsers[1]) // Default to professional
+  const [tenants] = useState<Tenant[]>(mockTenants)
+  const [users] = useState<User[]>(mockUsers)
+  const [plans] = useState<Plan[]>(mockPlans)
   const [locations] = useState<Location[]>(mockLocations)
-  const [students, setStudents] = useState<Student[]>(mockStudents)
-  const [transactions, setTransactions] =
-    useState<Transaction[]>(mockTransactions)
+  const [students] = useState<Student[]>(mockStudents)
+  const [payments] = useState<Payment[]>(mockPayments)
+  const [expenses] = useState<Expense[]>(mockExpenses)
+  const [sessions] = useState<Session[]>(mockSessions)
   const [theme, setThemeState] = useState<Theme>({
     primaryColor: 'blue',
     name: 'Personal Pro',
@@ -43,49 +62,50 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [currentLocationId, setCurrentLocation] = useState<string | 'all'>(
     'all',
   )
-  const [userRole] = useState<'professional' | 'student' | 'master'>(
-    'professional',
-  )
 
   const actions = useMemo(
     () => ({
+      setCurrentUser: (userId: string) => {
+        const user = users.find((u) => u.id === userId)
+        if (user) {
+          setCurrentUserObj(user)
+          setCurrentLocation('all')
+        }
+      },
       setTheme: (newTheme: Partial<Theme>) =>
         setThemeState((prev) => ({ ...prev, ...newTheme })),
       setCurrentLocation,
-      addTransaction: (txn: Omit<Transaction, 'id'>) => {
-        const newTxn = { ...txn, id: `txn-${Date.now()}` }
-        setTransactions((prev) => [newTxn, ...prev])
-      },
-      addStudent: (student: Omit<Student, 'id' | 'joinDate' | 'avatarUrl'>) => {
-        const newStudent: Student = {
-          ...student,
-          id: `stu-${Date.now()}`,
-          joinDate: new Date().toISOString(),
-          avatarUrl: `https://img.usecurling.com/ppl/thumbnail?seed=${Date.now()}`,
-        }
-        setStudents((prev) => [newStudent, ...prev])
-      },
     }),
-    [],
+    [users],
   )
 
   const value = useMemo(
     () => ({
+      currentUser,
+      tenants,
+      users,
+      plans,
       locations,
       students,
-      transactions,
+      payments,
+      expenses,
+      sessions,
       theme,
       currentLocationId,
-      userRole,
       ...actions,
     }),
     [
+      currentUser,
+      tenants,
+      users,
+      plans,
       locations,
       students,
-      transactions,
+      payments,
+      expenses,
+      sessions,
       theme,
       currentLocationId,
-      userRole,
       actions,
     ],
   )

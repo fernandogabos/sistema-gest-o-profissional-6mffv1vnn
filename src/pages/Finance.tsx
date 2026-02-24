@@ -1,14 +1,6 @@
 import { useMemo } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowUpRight, ArrowDownRight, Activity } from 'lucide-react'
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import {
   ChartContainer,
@@ -27,49 +19,69 @@ import useAppStore from '@/stores/main'
 import { formatBRL, formatDate } from '@/lib/formatters'
 
 export default function Finance() {
-  const { transactions, locations, currentLocationId } = useAppStore()
+  const { payments, expenses, locations, currentLocationId, currentUser } =
+    useAppStore()
 
-  const filteredTxns = useMemo(() => {
-    return transactions.filter(
-      (t) => currentLocationId === 'all' || t.locationId === currentLocationId,
+  const filteredPayments = useMemo(() => {
+    return payments.filter(
+      (p) =>
+        p.tenantId === currentUser.tenantId &&
+        (currentLocationId === 'all' || p.locationId === currentLocationId),
     )
-  }, [transactions, currentLocationId])
+  }, [payments, currentLocationId, currentUser.tenantId])
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter(
+      (e) =>
+        e.tenantId === currentUser.tenantId &&
+        (currentLocationId === 'all' || e.locationId === currentLocationId),
+    )
+  }, [expenses, currentLocationId, currentUser.tenantId])
 
   const stats = useMemo(() => {
     let income = 0
-    let expense = 0
+    let expenseTotal = 0
     let repasse = 0
 
-    filteredTxns.forEach((t) => {
-      if (t.type === 'income') income += t.amount
-      else expense += t.amount
+    filteredPayments
+      .filter((p) => p.status === 'paid')
+      .forEach((p) => {
+        income += p.amount
+      })
+    filteredExpenses.forEach((e) => {
+      expenseTotal += e.amount
     })
 
-    // Calculate repasse roughly based on current locations
     const locTotals: Record<string, number> = {}
-    filteredTxns
-      .filter((t) => t.type === 'income')
-      .forEach((t) => {
-        locTotals[t.locationId] = (locTotals[t.locationId] || 0) + t.amount
+    filteredPayments
+      .filter((p) => p.status === 'paid')
+      .forEach((p) => {
+        locTotals[p.locationId] = (locTotals[p.locationId] || 0) + p.amount
       })
 
-    locations.forEach((loc) => {
-      if (currentLocationId === 'all' || loc.id === currentLocationId) {
-        if (loc.splitType === 'percentage') {
-          repasse += (locTotals[loc.id] || 0) * (loc.splitValue / 100)
-        } else if (locTotals[loc.id] && locTotals[loc.id] > 0) {
-          // Simplistic fixed fee calculation per active location with income
-          repasse += loc.splitValue
+    locations
+      .filter((l) => l.tenantId === currentUser.tenantId)
+      .forEach((loc) => {
+        if (currentLocationId === 'all' || loc.id === currentLocationId) {
+          if (loc.rule.type === 'percentage') {
+            repasse += (locTotals[loc.id] || 0) * (loc.rule.value / 100)
+          } else if (locTotals[loc.id] && locTotals[loc.id] > 0) {
+            repasse += loc.rule.value
+          }
         }
-      }
-    })
+      })
 
-    const net = income - expense - repasse
-    return { income, expense, repasse, net }
-  }, [filteredTxns, locations, currentLocationId])
+    const net = income - expenseTotal - repasse
+    return { income, expense: expenseTotal, repasse, net }
+  }, [
+    filteredPayments,
+    filteredExpenses,
+    locations,
+    currentLocationId,
+    currentUser.tenantId,
+  ])
 
   const chartData = useMemo(() => {
-    // Mock chart data grouping by some logic, here just a static rep of recent months for demo
     return [
       { name: 'Nov', income: stats.income * 0.8, expense: stats.expense * 0.9 },
       { name: 'Dez', income: stats.income * 0.9, expense: stats.expense * 1.1 },
@@ -77,6 +89,28 @@ export default function Finance() {
       { name: 'Fev', income: stats.income * 1.1, expense: stats.expense * 0.8 },
     ]
   }, [stats])
+
+  const recentTxns = useMemo(() => {
+    const combined = [
+      ...filteredPayments.map((p) => ({
+        id: p.id,
+        desc: p.description,
+        amount: p.amount,
+        date: p.date,
+        type: 'income' as const,
+      })),
+      ...filteredExpenses.map((e) => ({
+        id: e.id,
+        desc: e.description,
+        amount: e.amount,
+        date: e.date,
+        type: 'expense' as const,
+      })),
+    ]
+    return combined
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 8)
+  }, [filteredPayments, filteredExpenses])
 
   return (
     <div className="p-6 md:p-8 max-w-7xl mx-auto space-y-6 animate-fade-in">
@@ -89,7 +123,7 @@ export default function Finance() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Receita Bruta</CardTitle>
             <ArrowUpRight className="h-4 w-4 text-emerald-500" />
           </CardHeader>
@@ -100,7 +134,7 @@ export default function Finance() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Despesas</CardTitle>
             <ArrowDownRight className="h-4 w-4 text-rose-500" />
           </CardHeader>
@@ -111,7 +145,7 @@ export default function Finance() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Repasses (Estimativa)
             </CardTitle>
@@ -127,7 +161,7 @@ export default function Finance() {
           </CardContent>
         </Card>
         <Card className="bg-primary text-primary-foreground">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">
               Receita Líquida
             </CardTitle>
@@ -196,14 +230,14 @@ export default function Finance() {
           </CardHeader>
           <CardContent className="flex-1 overflow-auto">
             <div className="space-y-4">
-              {filteredTxns.slice(0, 5).map((txn) => (
+              {recentTxns.map((txn) => (
                 <div
                   key={txn.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0 last:pb-0"
                 >
                   <div className="space-y-1">
                     <p className="text-sm font-medium leading-none">
-                      {txn.description}
+                      {txn.desc}
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {formatDate(txn.date)}

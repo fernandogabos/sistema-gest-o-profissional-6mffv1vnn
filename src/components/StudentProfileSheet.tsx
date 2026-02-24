@@ -20,12 +20,13 @@ interface Props {
 }
 
 export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
-  const { locations } = useAppStore()
+  const { locations, plans } = useAppStore()
 
   if (!student) return null
 
   const locationName =
     locations.find((l) => l.id === student.locationId)?.name || 'Desconhecido'
+  const plan = plans.find((p) => p.id === student.planId)
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -43,10 +44,18 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
               <SheetDescription className="flex items-center gap-2 mt-1">
                 <Badge
                   variant={
-                    student.status === 'active' ? 'default' : 'secondary'
+                    student.status === 'active'
+                      ? 'default'
+                      : student.status === 'delinquent'
+                        ? 'destructive'
+                        : 'secondary'
                   }
                 >
-                  {student.status === 'active' ? 'Ativo' : 'Inativo'}
+                  {student.status === 'active'
+                    ? 'Ativo'
+                    : student.status === 'delinquent'
+                      ? 'Inadimplente'
+                      : 'Inativo'}
                 </Badge>
                 <span>Membro desde {formatDate(student.joinDate)}</span>
               </SheetDescription>
@@ -69,7 +78,9 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-lg font-medium">{student.plan}</p>
+                <p className="text-lg font-medium">
+                  {plan?.name || 'Sem plano'}
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Local: {locationName}
                 </p>
@@ -91,10 +102,8 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
 
           <TabsContent value="workouts" className="animate-fade-in">
             <Card>
-              <CardContent className="pt-6">
-                <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum treino ativo no momento.</p>
-                </div>
+              <CardContent className="pt-6 text-center text-muted-foreground">
+                <p>Nenhum treino ativo no momento.</p>
               </CardContent>
             </Card>
           </TabsContent>
@@ -104,12 +113,21 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
               <CardContent className="pt-6">
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-sm">Status Pagamento</span>
-                  <Badge
-                    variant="outline"
-                    className="text-green-600 bg-green-50 border-green-200"
-                  >
-                    Em dia
-                  </Badge>
+                  {student.status === 'delinquent' ? (
+                    <Badge
+                      variant="outline"
+                      className="text-rose-600 bg-rose-50 border-rose-200"
+                    >
+                      Em atraso
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="text-green-600 bg-green-50 border-green-200"
+                    >
+                      Em dia
+                    </Badge>
+                  )}
                 </div>
                 <div className="flex justify-between items-center py-2 border-b">
                   <span className="text-sm">Próximo Vencimento</span>
