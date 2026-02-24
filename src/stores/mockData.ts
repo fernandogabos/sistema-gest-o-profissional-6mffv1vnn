@@ -18,10 +18,12 @@ export type Location = {
   tenantId: string
   name: string
   address: string
-  repasseTipo: 'percentage' | 'fixed'
-  repassePercentual: number
-  repasseValorFixo: number
-  repasseMensal: boolean
+  tipo_repasse: 'percentage' | 'fixed' | 'monthly' | 'none' | 'hybrid'
+  percentual_repasse: number
+  valor_fixo_por_sessao: number
+  valor_mensal_fixo: number
+  modelo_cobranca: string
+  ativo: boolean
 }
 export type Student = {
   id: string
@@ -47,9 +49,10 @@ export type Session = {
   alunoId: string
   localId: string
   data: string
-  valorSessao: number
-  repasseCalculado: number
-  lucroLiquido: number
+  valor_bruto: number
+  repasse_calculado: number
+  lucro_liquido: number
+  status: 'realized' | 'canceled'
 }
 export type Payment = {
   id: string
@@ -65,6 +68,16 @@ export type Expense = {
   descricao: string
   valor: number
   data: string
+}
+export type AuditLog = {
+  id: string
+  tenantId: string
+  action: string
+  entityType: string
+  entityId: string
+  details: string
+  justification?: string
+  createdAt: string
 }
 export type Theme = {
   primaryColor: string
@@ -166,20 +179,36 @@ export const mockLocations: Location[] = [
     tenantId: 't-1',
     name: 'Studio Centro',
     address: 'Rua Principal, 100',
-    repasseTipo: 'percentage',
-    repassePercentual: 30,
-    repasseValorFixo: 0,
-    repasseMensal: true,
+    tipo_repasse: 'percentage',
+    percentual_repasse: 30,
+    valor_fixo_por_sessao: 0,
+    valor_mensal_fixo: 0,
+    modelo_cobranca: 'Por Sessão',
+    ativo: true,
   },
   {
     id: 'loc-2',
     tenantId: 't-1',
     name: 'Academia FitZ',
     address: 'Av. Brasil, 200',
-    repasseTipo: 'fixed',
-    repassePercentual: 0,
-    repasseValorFixo: 50,
-    repasseMensal: false,
+    tipo_repasse: 'fixed',
+    percentual_repasse: 0,
+    valor_fixo_por_sessao: 50,
+    valor_mensal_fixo: 0,
+    modelo_cobranca: 'Mensal',
+    ativo: true,
+  },
+  {
+    id: 'loc-3',
+    tenantId: 't-1',
+    name: 'Condomínio Prime',
+    address: 'Av. das Flores, 50',
+    tipo_repasse: 'none',
+    percentual_repasse: 0,
+    valor_fixo_por_sessao: 0,
+    valor_mensal_fixo: 0,
+    modelo_cobranca: 'Avulso',
+    ativo: true,
   },
 ]
 
@@ -267,9 +296,10 @@ export const mockSessions: Session[] = [
     alunoId: 'stu-1',
     localId: 'loc-1',
     data: today,
-    valorSessao: 100,
-    repasseCalculado: 30,
-    lucroLiquido: 70,
+    valor_bruto: 100,
+    repasse_calculado: 30,
+    lucro_liquido: 70,
+    status: 'realized',
   },
   {
     id: 'ses-2',
@@ -277,11 +307,25 @@ export const mockSessions: Session[] = [
     alunoId: 'stu-2',
     localId: 'loc-2',
     data: today,
-    valorSessao: 150,
-    repasseCalculado: 50,
-    lucroLiquido: 100,
+    valor_bruto: 150,
+    repasse_calculado: 50,
+    lucro_liquido: 100,
+    status: 'realized',
+  },
+  {
+    id: 'ses-3',
+    tenantId: 't-1',
+    alunoId: 'stu-1',
+    localId: 'loc-3',
+    data: today,
+    valor_bruto: 120,
+    repasse_calculado: 0,
+    lucro_liquido: 120,
+    status: 'realized',
   },
 ]
+
+export const mockAuditLogs: AuditLog[] = []
 
 export const themeOptions = {
   blue: { primary: '221.2 83.2% 53.3%', secondary: '210 40% 96.1%' },

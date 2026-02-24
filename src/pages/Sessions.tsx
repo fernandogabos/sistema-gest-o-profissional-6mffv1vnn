@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Activity, Plus } from 'lucide-react'
+import { Activity, Plus, FileEdit } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,20 +30,31 @@ import { Badge } from '@/components/ui/badge'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
 import { formatBRL, formatDate } from '@/lib/formatters'
+import { Session } from '@/stores/mockData'
 
 export default function Sessions() {
-  const { sessions, students, locations, currentUser, addSession } =
-    useAppStore()
+  const {
+    sessions,
+    students,
+    locations,
+    currentUser,
+    addSession,
+    updateSession,
+  } = useAppStore()
   const { toast } = useToast()
   const [open, setOpen] = useState(false)
   const [error, setError] = useState('')
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [justification, setJustification] = useState('')
 
-  const [formData, setFormData] = useState({
+  const defaultForm = {
     alunoId: '',
     localId: '',
     data: new Date().toISOString().slice(0, 10),
-    valorSessao: '',
-  })
+    valor_bruto: '',
+    status: 'realized' as any,
+  }
+  const [formData, setFormData] = useState(defaultForm)
 
   const tenantSessions = sessions.filter(
     (s) => s.tenantId === currentUser.tenantId,
@@ -52,25 +63,58 @@ export default function Sessions() {
     (s) => s.tenantId === currentUser.tenantId,
   )
   const tenantLocations = locations.filter(
-    (l) => l.tenantId === currentUser.tenantId,
+    (l) => l.tenantId === currentUser.tenantId && l.ativo,
   )
 
+  const handleOpenNew = () => {
+    setEditingId(null)
+    setFormData(defaultForm)
+    setJustification('')
+    setOpen(true)
+  }
+
+  const handleEdit = (session: Session) => {
+    setEditingId(session.id)
+    setFormData({
+      alunoId: session.alunoId,
+      localId: session.localId,
+      data: session.data,
+      valor_bruto: session.valor_bruto.toString(),
+      status: session.status,
+    })
+    setJustification('')
+    setOpen(true)
+  }
+
   const handleSave = () => {
-    if (!formData.alunoId || !formData.localId || !formData.valorSessao) {
-      setError('Preencha todos os campos.')
+    if (!formData.alunoId || !formData.localId || !formData.valor_bruto) {
+      setError('Preencha aluno, local e valor bruto.')
       return
     }
-    addSession({
+    if (editingId && !justification) {
+      setError('Justificativa obrigatória para edições retroativas.')
+      return
+    }
+
+    const payload = {
       alunoId: formData.alunoId,
       localId: formData.localId,
       data: formData.data,
-      valorSessao: Number(formData.valorSessao),
-    })
+      valor_bruto: Number(formData.valor_bruto),
+      status: formData.status,
+    }
+
+    if (editingId) {
+      updateSession(editingId, payload, justification)
+      toast({ title: 'Sessão atualizada e registrada na auditoria.' })
+    } else {
+      addSession(payload)
+      toast({
+        title: 'Sessão registrada com sucesso!',
+        description: 'Valores financeiros calculados automaticamente.',
+      })
+    }
     setOpen(false)
-    toast({
-      title: 'Sessão registrada com sucesso!',
-      description: 'Repasse calculado automaticamente.',
-    })
   }
 
   return (
@@ -81,18 +125,20 @@ export default function Sessions() {
             Sessões Operacionais
           </h1>
           <p className="text-muted-foreground mt-1">
-            Registre sessões e calcule repasses automaticamente.
+            Registre sessões e acompanhe repasses e lucro líquido.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button onClick={handleOpenNew}>
               <Plus className="mr-2 h-4 w-4" /> Registrar Sessão
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Nova Sessão</DialogTitle>
+              <DialogTitle>
+                {editingId ? 'Editar Sessão Retroativa' : 'Nova Sessão'}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 pt-4">
               {error && <p className="text-sm text-destructive">{error}</p>}
@@ -127,7 +173,7 @@ export default function Sessions() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Local</Label>
+                <Label>Local de Atendimento</Label>
                 <Select
                   value={formData.localId}
                   onValueChange={(v) =>
@@ -147,17 +193,46 @@ export default function Sessions() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Valor da Sessão (R$)</Label>
+                <Label>Valor Bruto da Sessão (R$)</Label>
                 <Input
                   type="number"
-                  value={formData.valorSessao}
+                  value={formData.valor_bruto}
                   onChange={(e) =>
-                    setFormData((f) => ({ ...f, valorSessao: e.target.value }))
+                    setFormData((f) => ({ ...f, valor_bruto: e.target.value }))
                   }
                 />
               </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(v: any) =>
+                    setFormData((f) => ({ ...f, status: v }))
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="realized">Realizada</SelectItem>
+                    <SelectItem value="canceled">Cancelada</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {editingId && (
+                <div className="space-y-2 border-t pt-4 mt-4">
+                  <Label>Justificativa (Auditoria)</Label>
+                  <Input
+                    value={justification}
+                    placeholder="Ex: Correção de valor de repasse"
+                    onChange={(e) => setJustification(e.target.value)}
+                  />
+                </div>
+              )}
+
               <Button className="w-full mt-4" onClick={handleSave}>
-                Salvar e Calcular
+                Salvar e Processar Finanças
               </Button>
             </div>
           </DialogContent>
@@ -172,16 +247,18 @@ export default function Sessions() {
                 <TableHead>Data</TableHead>
                 <TableHead>Aluno</TableHead>
                 <TableHead>Local</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">V. Bruto</TableHead>
                 <TableHead className="text-right">Repasse</TableHead>
-                <TableHead className="text-right">Lucro Líquido</TableHead>
+                <TableHead className="text-right">L. Líquido</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tenantSessions.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={8}
                     className="h-24 text-center text-muted-foreground"
                   >
                     Nenhuma sessão registrada.
@@ -201,15 +278,37 @@ export default function Sessions() {
                         <TableCell className="font-medium">
                           {student?.nome}
                         </TableCell>
-                        <TableCell>{loc?.name}</TableCell>
+                        <TableCell>{loc?.name || 'Local Removido'}</TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              session.status === 'realized'
+                                ? 'default'
+                                : 'secondary'
+                            }
+                          >
+                            {session.status === 'realized'
+                              ? 'Realizada'
+                              : 'Cancelada'}
+                          </Badge>
+                        </TableCell>
                         <TableCell className="text-right font-medium">
-                          {formatBRL(session.valorSessao)}
+                          {formatBRL(session.valor_bruto)}
                         </TableCell>
                         <TableCell className="text-right text-amber-600">
-                          -{formatBRL(session.repasseCalculado)}
+                          -{formatBRL(session.repasse_calculado)}
                         </TableCell>
                         <TableCell className="text-right text-emerald-600 font-bold">
-                          {formatBRL(session.lucroLiquido)}
+                          {formatBRL(session.lucro_liquido)}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(session)}
+                          >
+                            <FileEdit className="h-4 w-4 text-muted-foreground" />
+                          </Button>
                         </TableCell>
                       </TableRow>
                     )
