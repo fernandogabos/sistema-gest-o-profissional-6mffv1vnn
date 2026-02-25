@@ -17,11 +17,10 @@ export function Header() {
 
   const navLinks = [
     { name: 'Funcionalidades', href: '#features' },
-    { name: 'Para quem é', href: '#audience' },
-    { name: 'Preços', href: '#pricing' },
+    { name: 'Depoimentos', href: '#testimonials' },
     { name: 'Educação', href: '#education' },
-    { name: 'Depoimentos', href: '#results' },
-    { name: 'Contato', href: '#contact' },
+    { name: 'Preços', href: '#pricing' },
+    { name: 'FAQ', href: '#faq' },
   ]
 
   return (
