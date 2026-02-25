@@ -27,6 +27,9 @@ import {
   GatewayConfig,
   PaymentMethod,
   Permuta,
+  AcademyContent,
+  AcademyEnrollment,
+  AcademyCertificate,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -47,6 +50,9 @@ import {
   mockGatewayConfigs,
   mockPaymentMethods,
   mockPermutas,
+  mockAcademyContents,
+  mockAcademyEnrollments,
+  mockAcademyCertificates,
   themeOptions,
 } from './mockData'
 
@@ -72,6 +78,9 @@ type AppState = {
   whatsappConfigs: WhatsAppConfig[]
   events: AgendaEvent[]
   analyticsAgenda: AnalyticsAgenda[]
+  academyContents: AcademyContent[]
+  academyEnrollments: AcademyEnrollment[]
+  academyCertificates: AcademyCertificate[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -141,6 +150,8 @@ type AppActions = {
   ) => void
   updateEvent: (id: string, updates: Partial<AgendaEvent>) => void
   deleteEvent: (id: string) => void
+  enrollAcademy: (contentId: string) => void
+  completeAcademyCourse: (contentId: string) => void
 }
 
 type AppStore = AppState & AppActions
@@ -169,6 +180,9 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     whatsappConfigs: mockWhatsAppConfigs,
     events: mockEvents,
     analyticsAgenda: mockAnalyticsAgenda,
+    academyContents: mockAcademyContents,
+    academyEnrollments: mockAcademyEnrollments,
+    academyCertificates: mockAcademyCertificates,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -616,6 +630,87 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           ...prev,
           events: prev.events.filter((e) => e.id !== id),
         })),
+
+      enrollAcademy: (contentId) =>
+        setState((prev) => {
+          const content = prev.academyContents.find((c) => c.id === contentId)
+          if (!content) return prev
+
+          let newPayments = prev.payments
+          if (!content.isFree && content.price > 0) {
+            newPayments = [
+              {
+                id: `pay-acad-${Date.now()}`,
+                tenantId: prev.currentUser.tenantId!,
+                descricao: `Academia INNOVA: ${content.title}`,
+                valorPago: content.price,
+                saldo_restante: content.price,
+                dataVencimento: new Date().toISOString().slice(0, 10),
+                status: 'pending',
+                recorrente: false,
+              } as any,
+              ...newPayments,
+            ]
+          }
+
+          if (
+            prev.academyEnrollments.some(
+              (e) =>
+                e.contentId === contentId && e.userId === prev.currentUser.id,
+            )
+          ) {
+            return prev
+          }
+
+          const newEnrollment: AcademyEnrollment = {
+            id: `enr-${Date.now()}`,
+            tenantId: prev.currentUser.tenantId!,
+            userId: prev.currentUser.id,
+            contentId,
+            progress: 0,
+            status: 'active',
+            enrolledAt: new Date().toISOString(),
+          }
+
+          return {
+            ...prev,
+            academyEnrollments: [newEnrollment, ...prev.academyEnrollments],
+            payments: newPayments,
+          }
+        }),
+
+      completeAcademyCourse: (contentId) =>
+        setState((prev) => {
+          const content = prev.academyContents.find((c) => c.id === contentId)
+          if (!content) return prev
+
+          const newEnrollments = prev.academyEnrollments.map((e) =>
+            e.contentId === contentId && e.userId === prev.currentUser.id
+              ? { ...e, progress: 100, status: 'completed' as const }
+              : e,
+          )
+
+          const newCert: AcademyCertificate = {
+            id: `cert-${Date.now()}`,
+            tenantId: prev.currentUser.tenantId!,
+            userId: prev.currentUser.id,
+            contentId,
+            courseName: content.title,
+            instructor: content.instructor,
+            workload: content.workload,
+            issueDate: new Date().toISOString(),
+            validationCode: Math.random()
+              .toString(36)
+              .substring(2, 10)
+              .toUpperCase(),
+          }
+
+          return {
+            ...prev,
+            academyEnrollments: newEnrollments,
+            academyCertificates: [newCert, ...prev.academyCertificates],
+          }
+        }),
     }),
     [],
   )

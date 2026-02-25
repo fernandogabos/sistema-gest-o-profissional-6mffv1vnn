@@ -18,6 +18,7 @@ import Sessions from './pages/Sessions'
 import Evaluations from './pages/Evaluations'
 import Communication from './pages/Communication'
 import Agenda from './pages/Agenda'
+import Academy from './pages/Academy'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -43,6 +44,7 @@ const App = () => (
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/inquilinos" element={<Tenants />} />
             <Route path="/planos" element={<Plans />} />
+            <Route path="/academia" element={<Academy />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

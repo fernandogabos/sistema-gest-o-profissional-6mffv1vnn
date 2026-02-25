@@ -249,6 +249,55 @@ export type AnalyticsAgenda = {
   ocupacao_percentual: number
 }
 
+export type AcademyContent = {
+  id: string
+  tenantId: string
+  type: 'course' | 'live' | 'event' | 'mentorship'
+  title: string
+  description: string
+  category: string
+  instructor: string
+  workload: number
+  format: 'ead' | 'live' | 'in-person' | 'hybrid'
+  isFree: boolean
+  price: number
+  targetAudience: string
+  prerequisites: string
+  thumbnailUrl: string
+  capacity?: number
+  enrolledCount: number
+  date?: string
+  time?: string
+  link?: string
+  modules?: {
+    id: string
+    title: string
+    lessons: { id: string; title: string; type: string; duration: number }[]
+  }[]
+}
+
+export type AcademyEnrollment = {
+  id: string
+  tenantId: string
+  userId: string
+  contentId: string
+  progress: number
+  status: 'active' | 'completed' | 'canceled'
+  enrolledAt: string
+}
+
+export type AcademyCertificate = {
+  id: string
+  tenantId: string
+  userId: string
+  contentId: string
+  courseName: string
+  instructor: string
+  workload: number
+  issueDate: string
+  validationCode: string
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -769,6 +818,143 @@ for (let d = 1; d <= 5; d++) {
     })
   }
 }
+
+export const mockAcademyContents: AcademyContent[] = [
+  {
+    id: 'ac-1',
+    tenantId: 't-1',
+    type: 'course',
+    title: 'Biomecânica Aplicada',
+    description:
+      'Entenda os princípios biomecânicos essenciais para otimização de hipertrofia e prevenção de lesões.',
+    category: 'Técnico',
+    instructor: 'Dr. Paulo Alves',
+    workload: 40,
+    format: 'ead',
+    isFree: false,
+    price: 299.9,
+    targetAudience: 'Profissionais de Ed. Física',
+    prerequisites: 'Anatomia básica',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=fitness%20class&color=blue',
+    capacity: 0,
+    enrolledCount: 150,
+    modules: [
+      {
+        id: 'm1',
+        title: 'Módulo 1: Introdução à Biomecânica',
+        lessons: [
+          {
+            id: 'l1',
+            title: 'O que é Biomecânica',
+            type: 'video',
+            duration: 15,
+          },
+          { id: 'l2', title: 'Apostila de Apoio', type: 'pdf', duration: 30 },
+        ],
+      },
+      {
+        id: 'm2',
+        title: 'Módulo 2: Membros Superiores',
+        lessons: [
+          { id: 'l3', title: 'Análise do Supino', type: 'video', duration: 25 },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'ac-2',
+    tenantId: 't-1',
+    type: 'mentorship',
+    title: 'Mentoria: Captação de Alunos High Ticket',
+    description:
+      'Descubra as estratégias para atrair, vender e reter alunos de alto valor no digital e presencial.',
+    category: 'Marketing',
+    instructor: 'Carlos Sales',
+    workload: 2,
+    format: 'live',
+    isFree: true,
+    price: 0,
+    targetAudience: 'Personal Trainers',
+    prerequisites: 'Nenhum',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=laptop%20meeting&color=orange',
+    enrolledCount: 45,
+    date: new Date().toISOString().slice(0, 10),
+    time: '20:00',
+    link: 'https://zoom.us/mock',
+  },
+  {
+    id: 'ac-3',
+    tenantId: 't-1',
+    type: 'event',
+    title: 'Workshop Prático de LPO',
+    description:
+      'Aprenda as técnicas fundamentais do Levantamento de Peso Olímpico na prática.',
+    category: 'Prático',
+    instructor: 'Coach Fernando',
+    workload: 8,
+    format: 'hybrid',
+    isFree: false,
+    price: 150,
+    targetAudience: 'Treinadores e Praticantes',
+    prerequisites: 'Nenhum',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=weightlifting&color=red',
+    capacity: 30,
+    enrolledCount: 28,
+    date: '2025-11-15',
+    time: '09:00',
+  },
+  {
+    id: 'ac-4',
+    tenantId: 't-1',
+    type: 'course',
+    title: 'Gestão Financeira para Personais',
+    description:
+      'Aprenda a precificar suas aulas, gerenciar custos e aumentar seu lucro líquido mensal.',
+    category: 'Gestão',
+    instructor: 'Ana Silva',
+    workload: 10,
+    format: 'ead',
+    isFree: true,
+    price: 0,
+    targetAudience: 'Iniciantes',
+    prerequisites: 'Nenhum',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=finance%20chart&color=green',
+    capacity: 0,
+    enrolledCount: 320,
+    modules: [
+      {
+        id: 'm1',
+        title: 'Módulo Único',
+        lessons: [
+          {
+            id: 'l1',
+            title: 'Precificação Inteligente',
+            type: 'video',
+            duration: 45,
+          },
+        ],
+      },
+    ],
+  },
+]
+
+export const mockAcademyEnrollments: AcademyEnrollment[] = [
+  {
+    id: 'enr-1',
+    tenantId: 't-1',
+    userId: 'u-prof1',
+    contentId: 'ac-4',
+    progress: 50,
+    status: 'active',
+    enrolledAt: '2023-09-01T10:00:00Z',
+  },
+]
+
+export const mockAcademyCertificates: AcademyCertificate[] = []
 
 export const mockAuditLogs: AuditLog[] = []
 

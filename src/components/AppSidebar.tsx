@@ -13,6 +13,7 @@ import {
   MessageSquare,
   CalendarDays,
   CreditCard,
+  GraduationCap,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -40,6 +41,7 @@ export function AppSidebar() {
   const profItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
     { title: 'Agenda', url: '/agenda', icon: CalendarDays },
+    { title: 'Academia INNOVA', url: '/academia', icon: GraduationCap },
     { title: 'Alunos', url: '/alunos', icon: Users },
     { title: 'Avaliações', url: '/avaliacoes', icon: ClipboardCheck },
     { title: 'Comunicação', url: '/comunicacao', icon: MessageSquare },
