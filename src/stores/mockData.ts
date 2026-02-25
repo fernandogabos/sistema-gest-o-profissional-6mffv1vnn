@@ -151,6 +151,31 @@ export type WhatsAppConfig = {
   apiToken: string
 }
 
+export type AgendaEvent = {
+  id: string
+  tenantId: string
+  userId: string
+  studentId?: string
+  locationId?: string
+  title: string
+  date: string
+  startTime: string
+  endTime: string
+  type: 'session' | 'block'
+  blockReason?: 'lunch' | 'travel' | 'personal' | 'vacation'
+  status:
+    | 'scheduled'
+    | 'confirmed'
+    | 'performed'
+    | 'canceled_student'
+    | 'canceled_pro'
+    | 'no_show'
+  value: number
+  splitValue: number
+  netValue: number
+  notes?: string
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -455,6 +480,56 @@ export const mockWhatsAppConfigs: WhatsAppConfig[] = [
     isConnected: true,
     phoneNumber: '5511999999999',
     apiToken: 'mock-token-abc',
+  },
+]
+
+export const mockEvents: AgendaEvent[] = [
+  {
+    id: 'evt-1',
+    tenantId: 't-1',
+    userId: 'u-prof1',
+    studentId: 'stu-1',
+    locationId: 'loc-1',
+    title: 'Sessão Carlos',
+    date: today,
+    startTime: '08:00',
+    endTime: '09:00',
+    type: 'session',
+    status: 'confirmed',
+    value: 120,
+    splitValue: 36,
+    netValue: 84,
+  },
+  {
+    id: 'evt-2',
+    tenantId: 't-1',
+    userId: 'u-prof1',
+    title: 'Almoço',
+    date: today,
+    startTime: '12:00',
+    endTime: '13:00',
+    type: 'block',
+    blockReason: 'lunch',
+    status: 'scheduled',
+    value: 0,
+    splitValue: 0,
+    netValue: 0,
+  },
+  {
+    id: 'evt-3',
+    tenantId: 't-1',
+    userId: 'u-prof1',
+    studentId: 'stu-2',
+    locationId: 'loc-2',
+    title: 'Sessão Ana',
+    date: today,
+    startTime: '09:30',
+    endTime: '10:30',
+    type: 'session',
+    status: 'scheduled',
+    value: 150,
+    splitValue: 50,
+    netValue: 100,
   },
 ]
 

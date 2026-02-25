@@ -11,6 +11,7 @@ import {
   Activity,
   ClipboardCheck,
   MessageSquare,
+  CalendarDays,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -37,6 +38,7 @@ export function AppSidebar() {
 
   const profItems = [
     { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+    { title: 'Agenda', url: '/agenda', icon: CalendarDays },
     { title: 'Alunos', url: '/alunos', icon: Users },
     { title: 'Avaliações', url: '/avaliacoes', icon: ClipboardCheck },
     { title: 'Comunicação', url: '/comunicacao', icon: MessageSquare },

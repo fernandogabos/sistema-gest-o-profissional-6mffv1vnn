@@ -16,6 +16,7 @@ import Plans from './pages/Plans'
 import Sessions from './pages/Sessions'
 import Evaluations from './pages/Evaluations'
 import Communication from './pages/Communication'
+import Agenda from './pages/Agenda'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -29,6 +30,7 @@ const App = () => (
         <Routes>
           <Route element={<Layout />}>
             <Route path="/" element={<Index />} />
+            <Route path="/agenda" element={<Agenda />} />
             <Route path="/locais" element={<Locations />} />
             <Route path="/alunos" element={<Students />} />
             <Route path="/avaliacoes" element={<Evaluations />} />
