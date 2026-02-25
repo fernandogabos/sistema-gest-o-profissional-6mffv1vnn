@@ -12,6 +12,7 @@ interface Props {
   view: AgendaView
   selectedEventId: string | null
   setSelectedEventId: (id: string | null) => void
+  showRiskOverlay: boolean
 }
 
 export function AgendaGrid({
@@ -19,12 +20,15 @@ export function AgendaGrid({
   view,
   selectedEventId,
   setSelectedEventId,
+  showRiskOverlay,
 }: Props) {
-  const { events, currentUser, updateEvent } = useAppStore()
+  const { events, currentUser, updateEvent, analyticsAgenda } = useAppStore()
 
   const myEvents = ['master_admin'].includes(currentUser.role)
     ? events.filter((e) => e.tenantId === currentUser.tenantId)
     : events.filter((e) => e.userId === currentUser.id)
+
+  const myAnalytics = analyticsAgenda.filter((a) => a.userId === currentUser.id)
 
   const start =
     view === 'day'
@@ -183,16 +187,45 @@ export function AgendaGrid({
           {days.map((d) => {
             const dateStr = format(d, 'yyyy-MM-dd')
             const dayEvents = myEvents.filter((e) => e.date === dateStr)
+            const dayOfWeek = d.getDay()
+
             return (
               <div key={d.toISOString()} className="flex-1 border-r relative">
-                {hours.map((h) => (
-                  <div
-                    key={h}
-                    className="h-[60px] border-b border-border/40 hover:bg-muted/10 transition-colors"
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => handleDrop(e, d, h)}
-                  />
-                ))}
+                {hours.map((h) => {
+                  const timeStr = `${h.toString().padStart(2, '0')}:00`
+                  const analytics = myAnalytics.find(
+                    (a) =>
+                      a.dia_semana === dayOfWeek && a.faixa_horaria === timeStr,
+                  )
+
+                  let riskClass = ''
+                  if (showRiskOverlay && analytics) {
+                    if (analytics.ocupacao_percentual < 0.4)
+                      riskClass = 'bg-rose-100/50 dark:bg-rose-900/20'
+                    else if (analytics.ocupacao_percentual < 0.7)
+                      riskClass = 'bg-amber-100/50 dark:bg-amber-900/20'
+                    else riskClass = 'bg-emerald-100/50 dark:bg-emerald-900/20'
+                  }
+
+                  return (
+                    <div
+                      key={h}
+                      className={cn(
+                        'h-[60px] border-b border-border/40 hover:bg-muted/10 transition-colors relative group/cell',
+                        riskClass,
+                      )}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => handleDrop(e, d, h)}
+                    >
+                      {showRiskOverlay && analytics && (
+                        <div className="absolute top-1 right-1 opacity-0 group-hover/cell:opacity-100 text-[10px] text-muted-foreground transition-opacity font-medium bg-background/80 px-1 rounded backdrop-blur-sm">
+                          {(analytics.ocupacao_percentual * 100).toFixed(0)}%
+                          ocup.
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
                 {dayEvents.map((ev) => {
                   const [h, m] = ev.startTime.split(':').map(Number)
                   const [eh, em] = ev.endTime.split(':').map(Number)

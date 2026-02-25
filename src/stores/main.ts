@@ -22,6 +22,7 @@ import {
   CommunicationLog,
   WhatsAppConfig,
   AgendaEvent,
+  AnalyticsAgenda,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -37,6 +38,7 @@ import {
   mockCommunicationLogs,
   mockWhatsAppConfigs,
   mockEvents,
+  mockAnalyticsAgenda,
   themeOptions,
 } from './mockData'
 
@@ -57,6 +59,7 @@ type AppState = {
   communicationLogs: CommunicationLog[]
   whatsappConfigs: WhatsAppConfig[]
   events: AgendaEvent[]
+  analyticsAgenda: AnalyticsAgenda[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -140,6 +143,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     communicationLogs: mockCommunicationLogs,
     whatsappConfigs: mockWhatsAppConfigs,
     events: mockEvents,
+    analyticsAgenda: mockAnalyticsAgenda,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',

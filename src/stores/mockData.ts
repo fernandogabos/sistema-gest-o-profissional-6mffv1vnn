@@ -176,6 +176,19 @@ export type AgendaEvent = {
   notes?: string
 }
 
+export type AnalyticsAgenda = {
+  id: string
+  tenantId: string
+  userId: string
+  dia_semana: number
+  faixa_horaria: string
+  localId?: string
+  receita_bruta: number
+  receita_liquida: number
+  taxa_comparecimento: number
+  ocupacao_percentual: number
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -532,6 +545,47 @@ export const mockEvents: AgendaEvent[] = [
     netValue: 100,
   },
 ]
+
+// Generate Mock Analytics for the past 90 days aggregated
+export const mockAnalyticsAgenda: AnalyticsAgenda[] = []
+for (let d = 1; d <= 5; d++) {
+  // Mon-Fri
+  for (let h = 6; h <= 21; h++) {
+    const isMorningPeak = h >= 6 && h <= 9
+    const isEveningPeak = h >= 17 && h <= 20
+    const isDeadZone = h >= 10 && h <= 14
+
+    let ocup = 0.5
+    let taxa = 0.8
+
+    if (isMorningPeak || isEveningPeak) {
+      ocup = 0.85 + Math.random() * 0.15 // 85% to 100%
+      taxa = 0.85 + Math.random() * 0.15
+    } else if (isDeadZone) {
+      ocup = 0.1 + Math.random() * 0.3 // 10% to 40%
+      taxa = 0.6 + Math.random() * 0.2
+    } else {
+      ocup = 0.4 + Math.random() * 0.4 // 40% to 80%
+      taxa = 0.7 + Math.random() * 0.2
+    }
+
+    // clamp values
+    ocup = Math.min(Math.max(ocup, 0), 1)
+    taxa = Math.min(Math.max(taxa, 0), 1)
+
+    mockAnalyticsAgenda.push({
+      id: `ana-${d}-${h}`,
+      tenantId: 't-1',
+      userId: 'u-prof1',
+      dia_semana: d,
+      faixa_horaria: `${h.toString().padStart(2, '0')}:00`,
+      receita_bruta: ocup * 1500, // mock monthly revenue for this slot
+      receita_liquida: ocup * 1200,
+      taxa_comparecimento: taxa,
+      ocupacao_percentual: ocup,
+    })
+  }
+}
 
 export const mockAuditLogs: AuditLog[] = []
 

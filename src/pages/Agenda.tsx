@@ -17,6 +17,7 @@ export default function Agenda() {
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [showOptimizer, setShowOptimizer] = useState(false)
   const [showProfitability, setShowProfitability] = useState(false)
+  const [showRiskOverlay, setShowRiskOverlay] = useState(false)
 
   const [initialFormDate, setInitialFormDate] = useState<string | undefined>()
   const [initialFormTime, setInitialFormTime] = useState<string | undefined>()
@@ -45,6 +46,8 @@ export default function Agenda() {
           onNew={handleNew}
           onOpenOptimizer={() => setShowOptimizer(true)}
           onOpenProfitability={() => setShowProfitability(true)}
+          showRiskOverlay={showRiskOverlay}
+          setShowRiskOverlay={setShowRiskOverlay}
         />
 
         {showProfitability ? (
@@ -55,6 +58,7 @@ export default function Agenda() {
             view={view}
             selectedEventId={selectedEventId}
             setSelectedEventId={setSelectedEventId}
+            showRiskOverlay={showRiskOverlay}
           />
         )}
 

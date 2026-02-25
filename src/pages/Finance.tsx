@@ -44,6 +44,10 @@ import {
   DollarSign,
   Activity,
   CheckCircle2,
+  RefreshCw,
+  LineChart as LineChartIcon,
+  Wand2,
+  AlertTriangle,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
@@ -55,7 +59,25 @@ import {
   ChartLegend,
   ChartLegendContent,
 } from '@/components/ui/chart'
-import { LineChart, Line, CartesianGrid, XAxis, YAxis } from 'recharts'
+import {
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  BarChart,
+  Bar,
+} from 'recharts'
+
+const dayNames = [
+  'Domingo',
+  'Segunda',
+  'Terça',
+  'Quarta',
+  'Quinta',
+  'Sexta',
+  'Sábado',
+]
 
 export default function Finance() {
   const {
@@ -63,6 +85,7 @@ export default function Finance() {
     expenses,
     students,
     currentUser,
+    analyticsAgenda,
     addPayment,
     updatePayment,
     addExpense,
@@ -93,6 +116,9 @@ export default function Finance() {
     status: 'pending' as any,
   })
 
+  const [isSyncing, setIsSyncing] = useState(false)
+  const [lastSync, setLastSync] = useState(new Date().toISOString())
+
   const tPayments = useMemo(
     () => payments.filter((p) => p.tenantId === currentUser.tenantId),
     [payments, currentUser],
@@ -104,6 +130,10 @@ export default function Finance() {
   const tenantStudents = useMemo(
     () => students.filter((s) => s.tenantId === currentUser.tenantId),
     [students, currentUser],
+  )
+  const myAnalytics = useMemo(
+    () => analyticsAgenda.filter((a) => a.userId === currentUser.id),
+    [analyticsAgenda, currentUser],
   )
 
   const currentMonthPrefix = new Date().toISOString().slice(0, 7)
@@ -218,6 +248,58 @@ export default function Finance() {
     return data
   }, [tPayments, tExpenses, currentMonthPrefix])
 
+  // Optimization & Forecast Calculations
+  const premiumSlots = useMemo(() => {
+    return myAnalytics
+      .filter(
+        (a) => a.ocupacao_percentual >= 0.85 && a.taxa_comparecimento >= 0.8,
+      )
+      .sort((a, b) => b.ocupacao_percentual - a.ocupacao_percentual)
+  }, [myAnalytics])
+
+  const optimizationSim = useMemo(() => {
+    const totalCurrentRev = premiumSlots.reduce(
+      (acc, s) => acc + s.receita_bruta,
+      0,
+    )
+    const monthlyBoost = totalCurrentRev * 0.1 // Simulate 10% average price increase on premium slots
+    const annualBoost = monthlyBoost * 12
+    return { monthlyBoost, annualBoost }
+  }, [premiumSlots])
+
+  const forecastData = useMemo(() => {
+    const grouped = myAnalytics.reduce(
+      (acc, slot) => {
+        if (!acc[slot.dia_semana]) acc[slot.dia_semana] = { sum: 0, count: 0 }
+        acc[slot.dia_semana].sum += slot.ocupacao_percentual
+        acc[slot.dia_semana].count += 1
+        return acc
+      },
+      {} as Record<number, { sum: number; count: number }>,
+    )
+
+    return Object.entries(grouped).map(([day, val]) => ({
+      name: dayNames[Number(day)].substring(0, 3),
+      ocupacao: (val.sum / val.count) * 100,
+    }))
+  }, [myAnalytics])
+
+  const criticalSlots = useMemo(() => {
+    return myAnalytics
+      .filter((a) => a.ocupacao_percentual < 0.4)
+      .sort((a, b) => a.ocupacao_percentual - b.ocupacao_percentual)
+      .slice(0, 8)
+  }, [myAnalytics])
+
+  const handleSync = () => {
+    setIsSyncing(true)
+    setTimeout(() => {
+      setIsSyncing(false)
+      setLastSync(new Date().toISOString())
+      toast({ title: 'Analytics sincronizado com sucesso!' })
+    }, 1500)
+  }
+
   const handleSavePayment = () => {
     if (!payData.descricao || !payData.valorPago) return
     addPayment({
@@ -313,10 +395,10 @@ export default function Finance() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">
-            Centro Financeiro
+            Centro Financeiro & Analytics
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gestão estratégica de receitas, despesas e fluxo de caixa.
+            Gestão estratégica de receitas, despesas e otimização de agenda.
           </p>
         </div>
         <div className="flex gap-2">
@@ -336,11 +418,43 @@ export default function Finance() {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 lg:w-[600px] mb-6">
-          <TabsTrigger value="dashboard">Visão Geral</TabsTrigger>
-          <TabsTrigger value="receivables">A Receber</TabsTrigger>
-          <TabsTrigger value="payables">A Pagar</TabsTrigger>
-          <TabsTrigger value="reports">DRE & Fluxo</TabsTrigger>
+        <TabsList className="flex flex-wrap h-auto w-full justify-start mb-6 gap-1 bg-transparent p-0">
+          <TabsTrigger
+            value="dashboard"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            Visão Geral
+          </TabsTrigger>
+          <TabsTrigger
+            value="receivables"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            A Receber
+          </TabsTrigger>
+          <TabsTrigger
+            value="payables"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            A Pagar
+          </TabsTrigger>
+          <TabsTrigger
+            value="reports"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            DRE & Fluxo
+          </TabsTrigger>
+          <TabsTrigger
+            value="forecast"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            Previsão de Agenda
+          </TabsTrigger>
+          <TabsTrigger
+            value="optimization"
+            className="data-[state=active]:bg-card data-[state=active]:shadow-sm border border-transparent data-[state=active]:border-border"
+          >
+            Otimização de Preços
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -902,6 +1016,260 @@ export default function Finance() {
                       {margin.toFixed(2)}%
                     </TableCell>
                   </TableRow>
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="forecast" className="space-y-6">
+          <div className="flex justify-between items-center mb-2">
+            <div>
+              <h2 className="text-xl font-bold">
+                Previsão Mensal (Motor de IA)
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Projeção baseada nos últimos 90 dias através da tabela{' '}
+                <code>analytics_agenda</code>
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSync}
+              disabled={isSyncing}
+            >
+              <RefreshCw
+                className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`}
+              />
+              Sincronizar Dados
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <LineChartIcon className="w-5 h-5 text-primary" /> Ocupação
+                  Média por Dia (Próximos 30d)
+                </CardTitle>
+                <CardDescription>
+                  Expectativa de preenchimento da agenda por dia da semana
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChartContainer
+                  config={{
+                    ocupacao: {
+                      label: 'Ocupação %',
+                      color: 'hsl(var(--primary))',
+                    },
+                  }}
+                  className="h-[250px] w-full"
+                >
+                  <BarChart
+                    data={forecastData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis
+                      dataKey="name"
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                    />
+                    <YAxis
+                      fontSize={12}
+                      tickLine={false}
+                      axisLine={false}
+                      domain={[0, 100]}
+                      tickFormatter={(v) => `${v}%`}
+                    />
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(v) => `${(v as number).toFixed(1)}%`}
+                        />
+                      }
+                    />
+                    <Bar
+                      dataKey="ocupacao"
+                      fill="var(--color-ocupacao)"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  </BarChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-rose-500" /> Alerta de
+                  Ociosidade (Alta Exposição)
+                </CardTitle>
+                <CardDescription>
+                  Horários com probabilidade de vacância &gt; 60% baseados no
+                  histórico
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0 overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Dia</TableHead>
+                      <TableHead>Horário</TableHead>
+                      <TableHead className="text-right">
+                        Ocupação Esp.
+                      </TableHead>
+                      <TableHead className="text-right">Risco</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {criticalSlots.map((s) => (
+                      <TableRow key={s.id}>
+                        <TableCell className="font-medium">
+                          {dayNames[s.dia_semana]}
+                        </TableCell>
+                        <TableCell>{s.faixa_horaria}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {(s.ocupacao_percentual * 100).toFixed(0)}%
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant="destructive">Alto</Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    {criticalSlots.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center p-4">
+                          Sua agenda está com excelente saúde!
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="optimization" className="space-y-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Wand2 className="w-5 h-5 text-amber-500" /> Otimização de Preços
+              Inteligente
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Horários com altíssima demanda (&gt;85% ocupação) e baixo churn.
+              Recomendamos ajuste de preço para maximizar receita líquida.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-amber-50 dark:bg-amber-950/20 border-amber-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-500">
+                  Aumento Potencial Mensal (+10%)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-amber-600">
+                  {formatBRL(optimizationSim.monthlyBoost)}
+                </div>
+                <p className="text-xs text-amber-700/70 mt-1">
+                  Se reajustado apenas nos novos contratos
+                </p>
+              </CardContent>
+            </Card>
+            <Card className="bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-emerald-800 dark:text-emerald-500">
+                  Aumento Potencial Anual
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-emerald-600">
+                  {formatBRL(optimizationSim.annualBoost)}
+                </div>
+                <p className="text-xs text-emerald-700/70 mt-1">
+                  Impacto composto na receita líquida
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>Top Horários Premium para Reajuste</CardTitle>
+                <CardDescription>
+                  Critérios: Ocupação &gt; 85% e Comparecimento &gt; 80%
+                </CardDescription>
+              </div>
+              <Button
+                onClick={() =>
+                  toast({
+                    title: 'Reajuste sugerido aplicado aos novos planos!',
+                    description:
+                      'Os novos alunos já receberão a tabela de preços atualizada.',
+                  })
+                }
+              >
+                Aplicar reajuste a novos contratos
+              </Button>
+            </CardHeader>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Dia</TableHead>
+                    <TableHead>Horário</TableHead>
+                    <TableHead className="text-right">Ocupação</TableHead>
+                    <TableHead className="text-right">
+                      Freq. (Comparecimento)
+                    </TableHead>
+                    <TableHead className="text-right">
+                      Receita Atual/Mês
+                    </TableHead>
+                    <TableHead className="text-right bg-primary/5 rounded-t-md">
+                      Sugestão (+10%)
+                    </TableHead>
+                    <TableHead className="text-right">Impacto Mensal</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {premiumSlots.slice(0, 10).map((s) => (
+                    <TableRow key={s.id}>
+                      <TableCell className="font-medium">
+                        {dayNames[s.dia_semana]}
+                      </TableCell>
+                      <TableCell>{s.faixa_horaria}</TableCell>
+                      <TableCell className="text-right font-bold text-emerald-600">
+                        {(s.ocupacao_percentual * 100).toFixed(0)}%
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {(s.taxa_comparecimento * 100).toFixed(0)}%
+                      </TableCell>
+                      <TableCell className="text-right text-muted-foreground">
+                        {formatBRL(s.receita_bruta)}
+                      </TableCell>
+                      <TableCell className="text-right font-bold bg-primary/5">
+                        {formatBRL(s.receita_bruta * 1.1)}
+                      </TableCell>
+                      <TableCell className="text-right text-emerald-600 font-medium">
+                        +{formatBRL(s.receita_bruta * 0.1)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {premiumSlots.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center p-4">
+                        Nenhum horário com demanda premium o suficiente no
+                        momento.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

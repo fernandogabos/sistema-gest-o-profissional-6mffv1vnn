@@ -7,7 +7,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Plus, Sparkles, BarChart2 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { Plus, Sparkles, BarChart2, LineChart } from 'lucide-react'
 import { AgendaView } from '@/pages/Agenda'
 
 interface Props {
@@ -18,6 +19,8 @@ interface Props {
   onNew: () => void
   onOpenOptimizer: () => void
   onOpenProfitability: () => void
+  showRiskOverlay: boolean
+  setShowRiskOverlay: (val: boolean) => void
 }
 
 export function AgendaSidebar({
@@ -28,6 +31,8 @@ export function AgendaSidebar({
   onNew,
   onOpenOptimizer,
   onOpenProfitability,
+  showRiskOverlay,
+  setShowRiskOverlay,
 }: Props) {
   return (
     <div className="w-72 shrink-0 border-r bg-muted/10 p-4 flex flex-col gap-6 overflow-y-auto hidden md:flex">
@@ -80,7 +85,35 @@ export function AgendaSidebar({
         </Select>
       </div>
 
-      <div className="mt-4 p-4 border rounded-md bg-card/50 space-y-3">
+      <div className="space-y-2 p-3 border rounded-md bg-card/50">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-foreground flex items-center gap-2">
+            <LineChart className="w-4 h-4 text-primary" /> Risco de Ociosidade
+          </label>
+          <Switch
+            checked={showRiskOverlay}
+            onCheckedChange={setShowRiskOverlay}
+          />
+        </div>
+        {showRiskOverlay && (
+          <div className="space-y-1 mt-2 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-rose-200 rounded border border-rose-300" />{' '}
+              Alto Risco (&lt;40%)
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-amber-200 rounded border border-amber-300" />{' '}
+              Risco Médio (40-70%)
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 bg-emerald-200 rounded border border-emerald-300" />{' '}
+              Baixo Risco (&gt;70%)
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 border rounded-md bg-card/50 space-y-3 mt-auto">
         <h4 className="text-sm font-semibold">Legenda</h4>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <div className="w-3 h-3 rounded bg-blue-100 border border-blue-300" />{' '}
