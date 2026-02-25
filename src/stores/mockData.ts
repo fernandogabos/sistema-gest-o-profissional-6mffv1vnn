@@ -36,6 +36,9 @@ export type Student = {
   planId?: string
   whatsappConsent?: boolean
   consentUpdatedAt?: string
+  bloquear_inadimplente?: boolean
+  dias_tolerancia?: number
+  exigir_pagamento_antecipado?: boolean
 }
 export type Plan = {
   id: string
@@ -56,13 +59,44 @@ export type Session = {
   lucro_liquido: number
   status: 'realized' | 'canceled'
 }
+export type PaymentMethod = {
+  id: string
+  tenantId: string
+  nome: string
+  tipo:
+    | 'credit_card'
+    | 'pix_gateway'
+    | 'boleto'
+    | 'pix_manual'
+    | 'cash'
+    | 'transfer'
+    | 'barter'
+    | 'other'
+  online: boolean
+  gera_taxa: boolean
+  ativo: boolean
+}
+export type Permuta = {
+  id: string
+  tenantId: string
+  alunoId: string
+  valor_equivalente: number
+  descricao: string
+  data: string
+}
 export type Payment = {
   id: string
-  tenantId: string // maps to empresa_id
-  alunoId?: string // maps to cliente_id
+  tenantId: string
+  alunoId?: string
   contrato_id?: string
   descricao: string
-  valorPago: number // maps to valor
+  valorPago: number
+  valor_recebido?: number
+  saldo_restante?: number
+  forma_pagamento_id?: string
+  tipo_receita?: string
+  online?: boolean
+  observacoes?: string
   gateway?: string
   gateway_payment_id?: string
   tipo?: string
@@ -71,13 +105,13 @@ export type Payment = {
   taxa_plataforma?: number
   valor_liquido?: number
   data_criacao?: string
-  status: 'paid' | 'pending' | 'overdue' | 'failed' | 'canceled'
+  status: 'paid' | 'pending' | 'overdue' | 'failed' | 'canceled' | 'partial'
   recorrente: boolean
 }
 export type Subscription = {
   id: string
-  tenantId: string // maps to empresa_id
-  alunoId: string // maps to cliente_id
+  tenantId: string
+  alunoId: string
   gateway: 'stripe' | 'pagarme' | 'infinitepay'
   gateway_subscription_id: string
   valor: number
@@ -340,6 +374,9 @@ export const mockStudents: Student[] = [
     status: 'active',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=1',
     whatsappConsent: true,
+    bloquear_inadimplente: true,
+    dias_tolerancia: 5,
+    exigir_pagamento_antecipado: false,
   },
   {
     id: 'stu-2',
@@ -351,6 +388,86 @@ export const mockStudents: Student[] = [
     status: 'active',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=2',
     whatsappConsent: true,
+    bloquear_inadimplente: true,
+    dias_tolerancia: 0,
+    exigir_pagamento_antecipado: true,
+  },
+]
+
+export const mockPaymentMethods: PaymentMethod[] = [
+  {
+    id: 'pm-1',
+    tenantId: 't-1',
+    nome: 'Cartão via Gateway',
+    tipo: 'credit_card',
+    online: true,
+    gera_taxa: true,
+    ativo: true,
+  },
+  {
+    id: 'pm-2',
+    tenantId: 't-1',
+    nome: 'PIX via Gateway',
+    tipo: 'pix_gateway',
+    online: true,
+    gera_taxa: true,
+    ativo: true,
+  },
+  {
+    id: 'pm-3',
+    tenantId: 't-1',
+    nome: 'Boleto',
+    tipo: 'boleto',
+    online: true,
+    gera_taxa: true,
+    ativo: true,
+  },
+  {
+    id: 'pm-4',
+    tenantId: 't-1',
+    nome: 'PIX Manual',
+    tipo: 'pix_manual',
+    online: false,
+    gera_taxa: false,
+    ativo: true,
+  },
+  {
+    id: 'pm-5',
+    tenantId: 't-1',
+    nome: 'Dinheiro',
+    tipo: 'cash',
+    online: false,
+    gera_taxa: false,
+    ativo: true,
+  },
+  {
+    id: 'pm-6',
+    tenantId: 't-1',
+    nome: 'Transferência',
+    tipo: 'transfer',
+    online: false,
+    gera_taxa: false,
+    ativo: true,
+  },
+  {
+    id: 'pm-7',
+    tenantId: 't-1',
+    nome: 'Permuta',
+    tipo: 'barter',
+    online: false,
+    gera_taxa: false,
+    ativo: true,
+  },
+]
+
+export const mockPermutas: Permuta[] = [
+  {
+    id: 'perm-1',
+    tenantId: 't-1',
+    alunoId: 'stu-2',
+    valor_equivalente: 150,
+    descricao: 'Serviço de design gráfico',
+    data: today,
   },
 ]
 
@@ -361,12 +478,16 @@ export const mockPayments: Payment[] = [
     alunoId: 'stu-1',
     descricao: 'Mensalidade Padrão',
     valorPago: 350,
+    valor_recebido: 350,
+    saldo_restante: 0,
     dataVencimento: `${currentMonth}-05`,
     dataPagamento: `${currentMonth}-05`,
     status: 'paid',
     recorrente: true,
     gateway: 'stripe',
     tipo: 'subscription',
+    online: true,
+    forma_pagamento_id: 'pm-1',
   },
   {
     id: 'pay-2',
@@ -374,6 +495,7 @@ export const mockPayments: Payment[] = [
     alunoId: 'stu-2',
     descricao: 'Avaliação Física',
     valorPago: 150,
+    saldo_restante: 150,
     dataVencimento: today,
     status: 'pending',
     recorrente: false,
@@ -610,10 +732,8 @@ export const mockEvents: AgendaEvent[] = [
   },
 ]
 
-// Generate Mock Analytics for the past 90 days aggregated
 export const mockAnalyticsAgenda: AnalyticsAgenda[] = []
 for (let d = 1; d <= 5; d++) {
-  // Mon-Fri
   for (let h = 6; h <= 21; h++) {
     const isMorningPeak = h >= 6 && h <= 9
     const isEveningPeak = h >= 17 && h <= 20
@@ -623,17 +743,16 @@ for (let d = 1; d <= 5; d++) {
     let taxa = 0.8
 
     if (isMorningPeak || isEveningPeak) {
-      ocup = 0.85 + Math.random() * 0.15 // 85% to 100%
+      ocup = 0.85 + Math.random() * 0.15
       taxa = 0.85 + Math.random() * 0.15
     } else if (isDeadZone) {
-      ocup = 0.1 + Math.random() * 0.3 // 10% to 40%
+      ocup = 0.1 + Math.random() * 0.3
       taxa = 0.6 + Math.random() * 0.2
     } else {
-      ocup = 0.4 + Math.random() * 0.4 // 40% to 80%
+      ocup = 0.4 + Math.random() * 0.4
       taxa = 0.7 + Math.random() * 0.2
     }
 
-    // clamp values
     ocup = Math.min(Math.max(ocup, 0), 1)
     taxa = Math.min(Math.max(taxa, 0), 1)
 
@@ -643,7 +762,7 @@ for (let d = 1; d <= 5; d++) {
       userId: 'u-prof1',
       dia_semana: d,
       faixa_horaria: `${h.toString().padStart(2, '0')}:00`,
-      receita_bruta: ocup * 1500, // mock monthly revenue for this slot
+      receita_bruta: ocup * 1500,
       receita_liquida: ocup * 1200,
       taxa_comparecimento: taxa,
       ocupacao_percentual: ocup,

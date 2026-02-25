@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
 import { AgendaEvent } from '@/stores/mockData'
 
@@ -35,8 +36,16 @@ export function EventFormDialog({
   initialDate,
   initialTime,
 }: Props) {
-  const { events, students, locations, addEvent, updateEvent, currentUser } =
-    useAppStore()
+  const {
+    events,
+    students,
+    locations,
+    payments,
+    addEvent,
+    updateEvent,
+    currentUser,
+  } = useAppStore()
+  const { toast } = useToast()
 
   const defaultForm = {
     type: 'session',
@@ -76,6 +85,36 @@ export function EventFormDialog({
 
   const handleSave = () => {
     if (!formData.title || !formData.date) return
+
+    if (formData.type === 'session' && formData.studentId) {
+      const student = tenantStudents.find((s) => s.id === formData.studentId)
+      if (student?.status === 'delinquent' && student.bloquear_inadimplente) {
+        const overdues = payments.filter(
+          (p) => p.alunoId === student.id && p.status === 'overdue',
+        )
+        const maxDays =
+          overdues.length > 0
+            ? Math.max(
+                ...overdues.map((p) =>
+                  Math.floor(
+                    (new Date().getTime() -
+                      new Date(p.dataVencimento).getTime()) /
+                      (1000 * 3600 * 24),
+                  ),
+                ),
+              )
+            : 0
+        if (maxDays > (student.dias_tolerancia || 0)) {
+          toast({
+            title: 'Atenção: Aluno Inadimplente',
+            description: `O agendamento está bloqueado. O aluno excedeu os ${student.dias_tolerancia || 0} dias de tolerância de atraso.`,
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+    }
+
     const loc = locations.find((l) => l.id === formData.locationId)
     let split = 0
     if (loc && formData.value) {

@@ -16,6 +16,8 @@ import {
   CardDescription,
 } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
 import { Student } from '@/stores/mockData'
 import useAppStore from '@/stores/main'
 import { formatDate } from '@/lib/formatters'
@@ -27,7 +29,8 @@ interface Props {
 }
 
 export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
-  const { plans, communicationLogs, updateStudentConsent } = useAppStore()
+  const { plans, communicationLogs, updateStudent, updateStudentConsent } =
+    useAppStore()
 
   if (!student) return null
 
@@ -71,8 +74,9 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsTrigger value="overview">Geral</TabsTrigger>
+            <TabsTrigger value="rules">Regras</TabsTrigger>
             <TabsTrigger value="contact">Contato</TabsTrigger>
             <TabsTrigger value="communication">Comunicação</TabsTrigger>
           </TabsList>
@@ -93,6 +97,70 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
                     {plan.frequenciaSemanal}x por semana
                   </p>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="rules" className="animate-fade-in space-y-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">
+                  Regras de Contrato & Agenda
+                </CardTitle>
+                <CardDescription>
+                  Configure como o sistema lida com a inadimplência deste aluno.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">
+                      Bloquear se Inadimplente
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Impede agendamentos se houver atrasos
+                    </p>
+                  </div>
+                  <Switch
+                    checked={student.bloquear_inadimplente}
+                    onCheckedChange={(v) =>
+                      updateStudent(student.id, { bloquear_inadimplente: v })
+                    }
+                  />
+                </div>
+                {student.bloquear_inadimplente && (
+                  <div className="space-y-1">
+                    <Label className="text-xs">Dias de Tolerância</Label>
+                    <Input
+                      type="number"
+                      className="h-8 text-sm max-w-[100px]"
+                      value={student.dias_tolerancia || 0}
+                      onChange={(e) =>
+                        updateStudent(student.id, {
+                          dias_tolerancia: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-4 border-t">
+                  <div>
+                    <p className="font-medium text-sm">
+                      Exigir Pagamento Antecipado
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Sessão só ocorre após a compensação
+                    </p>
+                  </div>
+                  <Switch
+                    checked={student.exigir_pagamento_antecipado}
+                    onCheckedChange={(v) =>
+                      updateStudent(student.id, {
+                        exigir_pagamento_antecipado: v,
+                      })
+                    }
+                  />
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

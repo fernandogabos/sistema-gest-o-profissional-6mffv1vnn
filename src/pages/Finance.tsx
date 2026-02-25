@@ -48,6 +48,7 @@ import {
   LineChart as LineChartIcon,
   Wand2,
   AlertTriangle,
+  RefreshCcw,
 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
@@ -86,10 +87,13 @@ export default function Finance() {
     students,
     currentUser,
     analyticsAgenda,
+    paymentMethods,
+    permutas,
     addPayment,
     updatePayment,
     addExpense,
     updateExpense,
+    addPermuta,
   } = useAppStore()
   const { toast } = useToast()
 
@@ -116,8 +120,16 @@ export default function Finance() {
     status: 'pending' as any,
   })
 
+  const [registerPayOpen, setRegisterPayOpen] = useState(false)
+  const [regPayData, setRegPayData] = useState({
+    paymentId: '',
+    valor_recebido: '',
+    forma_pagamento_id: '',
+    data_recebimento: new Date().toISOString().slice(0, 10),
+    observacoes: '',
+  })
+
   const [isSyncing, setIsSyncing] = useState(false)
-  const [lastSync, setLastSync] = useState(new Date().toISOString())
 
   const tPayments = useMemo(
     () => payments.filter((p) => p.tenantId === currentUser.tenantId),
@@ -127,9 +139,20 @@ export default function Finance() {
     () => expenses.filter((e) => e.tenantId === currentUser.tenantId),
     [expenses, currentUser],
   )
+  const tPermutas = useMemo(
+    () => permutas.filter((p) => p.tenantId === currentUser.tenantId),
+    [permutas, currentUser],
+  )
   const tenantStudents = useMemo(
     () => students.filter((s) => s.tenantId === currentUser.tenantId),
     [students, currentUser],
+  )
+  const tenantMethods = useMemo(
+    () =>
+      paymentMethods.filter(
+        (m) => m.tenantId === currentUser.tenantId && m.ativo,
+      ),
+    [paymentMethods, currentUser],
   )
   const myAnalytics = useMemo(
     () => analyticsAgenda.filter((a) => a.userId === currentUser.id),
@@ -137,12 +160,28 @@ export default function Finance() {
   )
 
   const currentMonthPrefix = new Date().toISOString().slice(0, 7)
-  const monthlyPaidRev = tPayments
+
+  // Receita Financeira (Caixa)
+  const monthlyCashIn = tPayments
     .filter(
       (p) =>
-        p.status === 'paid' && p.dataPagamento?.startsWith(currentMonthPrefix),
+        (p.status === 'paid' || p.status === 'partial') &&
+        p.dataPagamento?.startsWith(currentMonthPrefix),
     )
-    .reduce((acc, p) => acc + p.valorPago, 0)
+    .reduce((acc, p) => {
+      const pm = tenantMethods.find((m) => m.id === p.forma_pagamento_id)
+      if (pm?.tipo === 'barter') return acc // Exclui permuta do caixa
+      return acc + (p.valor_recebido || p.valorPago || 0)
+    }, 0)
+
+  // Receita de Permutas (Não Monetária)
+  const monthlyBarterIn = tPermutas
+    .filter((p) => p.data.startsWith(currentMonthPrefix))
+    .reduce((acc, p) => acc + p.valor_equivalente, 0)
+
+  // Receita Bruta (DRE)
+  const monthlyGrossRev = monthlyCashIn + monthlyBarterIn
+
   const monthlyPaidExp = tExpenses
     .filter(
       (e) =>
@@ -153,31 +192,36 @@ export default function Finance() {
   const lastMonthDate = new Date()
   lastMonthDate.setMonth(lastMonthDate.getMonth() - 1)
   const lastMonthPrefix = lastMonthDate.toISOString().slice(0, 7)
-  const lastMonthPaidRev = tPayments
-    .filter(
-      (p) =>
-        p.status === 'paid' && p.dataPagamento?.startsWith(lastMonthPrefix),
-    )
-    .reduce((acc, p) => acc + p.valorPago, 0)
+
+  const lastMonthGrossRev =
+    tPayments
+      .filter(
+        (p) =>
+          (p.status === 'paid' || p.status === 'partial') &&
+          p.dataPagamento?.startsWith(lastMonthPrefix),
+      )
+      .reduce((acc, p) => acc + (p.valor_recebido || p.valorPago || 0), 0) +
+    tPermutas
+      .filter((p) => p.data.startsWith(lastMonthPrefix))
+      .reduce((acc, p) => acc + p.valor_equivalente, 0)
 
   const activeStudents = tenantStudents.filter(
     (s) => s.status === 'active',
   ).length
-  const ticketMedio = activeStudents > 0 ? monthlyPaidRev / activeStudents : 0
+  const ticketMedio = activeStudents > 0 ? monthlyGrossRev / activeStudents : 0
   const growth =
-    lastMonthPaidRev > 0
-      ? ((monthlyPaidRev - lastMonthPaidRev) / lastMonthPaidRev) * 100
+    lastMonthGrossRev > 0
+      ? ((monthlyGrossRev - lastMonthGrossRev) / lastMonthGrossRev) * 100
       : 100
   const margin =
-    monthlyPaidRev > 0
-      ? ((monthlyPaidRev - monthlyPaidExp) / monthlyPaidRev) * 100
+    monthlyGrossRev > 0
+      ? ((monthlyGrossRev - monthlyPaidExp) / monthlyGrossRev) * 100
       : 0
 
   const overduePayments = tPayments.filter((p) => p.status === 'overdue')
-  const overdueExpenses = tExpenses.filter((e) => e.status === 'overdue')
 
   const dre = useMemo(() => {
-    const gross = monthlyPaidRev
+    const gross = monthlyGrossRev
     const taxes = tExpenses
       .filter(
         (e) =>
@@ -206,8 +250,22 @@ export default function Finance() {
       .reduce((acc, e) => acc + e.valor, 0)
 
     const net = gross - varCosts - fixedCosts - taxes
-    return { gross, varCosts, fixedCosts, taxes, net }
-  }, [tPayments, tExpenses, currentMonthPrefix, monthlyPaidRev])
+    return {
+      gross,
+      cashIn: monthlyCashIn,
+      barterIn: monthlyBarterIn,
+      varCosts,
+      fixedCosts,
+      taxes,
+      net,
+    }
+  }, [
+    tExpenses,
+    currentMonthPrefix,
+    monthlyGrossRev,
+    monthlyCashIn,
+    monthlyBarterIn,
+  ])
 
   const cashFlowData = useMemo(() => {
     const daysInMonth = new Date(
@@ -222,16 +280,32 @@ export default function Finance() {
 
     for (let i = 1; i <= daysInMonth; i++) {
       const dateStr = `${currentMonthPrefix}-${i.toString().padStart(2, '0')}`
+
       const dayRevReal = tPayments
-        .filter((p) => p.status === 'paid' && p.dataPagamento === dateStr)
-        .reduce((acc, p) => acc + p.valorPago, 0)
+        .filter(
+          (p) =>
+            (p.status === 'paid' || p.status === 'partial') &&
+            p.dataPagamento === dateStr,
+        )
+        .reduce((acc, p) => {
+          const pm = tenantMethods.find((m) => m.id === p.forma_pagamento_id)
+          if (pm?.tipo === 'barter') return acc
+          return acc + (p.valor_recebido || p.valorPago || 0)
+        }, 0)
+
       const dayExpReal = tExpenses
         .filter((e) => e.status === 'paid' && e.dataPagamento === dateStr)
         .reduce((acc, e) => acc + e.valor, 0)
 
       const dayRevProj = tPayments
         .filter((p) => p.dataVencimento === dateStr)
-        .reduce((acc, p) => acc + p.valorPago, 0)
+        .reduce(
+          (acc, p) =>
+            acc +
+            (p.saldo_restante !== undefined ? p.saldo_restante : p.valorPago),
+          0,
+        )
+
       const dayExpProj = tExpenses
         .filter((e) => e.dataVencimento === dateStr)
         .reduce((acc, e) => acc + e.valor, 0)
@@ -246,9 +320,8 @@ export default function Finance() {
       })
     }
     return data
-  }, [tPayments, tExpenses, currentMonthPrefix])
+  }, [tPayments, tExpenses, tenantMethods, currentMonthPrefix])
 
-  // Optimization & Forecast Calculations
   const premiumSlots = useMemo(() => {
     return myAnalytics
       .filter(
@@ -262,7 +335,7 @@ export default function Finance() {
       (acc, s) => acc + s.receita_bruta,
       0,
     )
-    const monthlyBoost = totalCurrentRev * 0.1 // Simulate 10% average price increase on premium slots
+    const monthlyBoost = totalCurrentRev * 0.1
     const annualBoost = monthlyBoost * 12
     return { monthlyBoost, annualBoost }
   }, [premiumSlots])
@@ -295,7 +368,6 @@ export default function Finance() {
     setIsSyncing(true)
     setTimeout(() => {
       setIsSyncing(false)
-      setLastSync(new Date().toISOString())
       toast({ title: 'Analytics sincronizado com sucesso!' })
     }, 1500)
   }
@@ -306,16 +378,49 @@ export default function Finance() {
       alunoId: payData.alunoId === 'none' ? undefined : payData.alunoId,
       descricao: payData.descricao,
       valorPago: Number(payData.valorPago),
+      saldo_restante: Number(payData.valorPago),
       dataVencimento: payData.dataVencimento,
-      dataPagamento:
-        payData.status === 'paid'
-          ? payData.dataPagamento || new Date().toISOString().slice(0, 10)
-          : undefined,
-      status: payData.status,
+      status: 'pending',
       recorrente: payData.recorrente,
     })
     setOpenPay(false)
     toast({ title: 'Receita registrada com sucesso!' })
+  }
+
+  const handleSaveManualPayment = () => {
+    if (!regPayData.forma_pagamento_id || !regPayData.valor_recebido) return
+    const payment = tPayments.find((p) => p.id === regPayData.paymentId)
+    if (!payment) return
+
+    const pm = tenantMethods.find((m) => m.id === regPayData.forma_pagamento_id)
+    const isPermuta = pm?.tipo === 'barter'
+    const valueReceived = Number(regPayData.valor_recebido)
+
+    const newTotalReceived = (payment.valor_recebido || 0) + valueReceived
+    const newRestante = payment.valorPago - newTotalReceived
+    const status = newRestante <= 0 ? 'paid' : 'partial'
+
+    updatePayment(payment.id, {
+      valor_recebido: newTotalReceived,
+      saldo_restante: newRestante,
+      status,
+      dataPagamento: regPayData.data_recebimento,
+      forma_pagamento_id: pm?.id,
+      online: pm?.online,
+      observacoes: regPayData.observacoes,
+    })
+
+    if (isPermuta && payment.alunoId) {
+      addPermuta({
+        alunoId: payment.alunoId,
+        valor_equivalente: valueReceived,
+        descricao: regPayData.observacoes || payment.descricao,
+        data: regPayData.data_recebimento,
+      })
+    }
+
+    setRegisterPayOpen(false)
+    toast({ title: 'Recebimento registrado com sucesso!' })
   }
 
   const handleSaveExpense = () => {
@@ -335,14 +440,6 @@ export default function Finance() {
     })
     setOpenExp(false)
     toast({ title: 'Despesa registrada com sucesso!' })
-  }
-
-  const markPaymentPaid = (id: string) => {
-    updatePayment(id, {
-      status: 'paid',
-      dataPagamento: new Date().toISOString().slice(0, 10),
-    })
-    toast({ title: 'Recebimento marcado como pago' })
   }
 
   const markExpensePaid = (id: string) => {
@@ -383,6 +480,12 @@ export default function Finance() {
         return (
           <Badge className="bg-emerald-500 hover:bg-emerald-600">Pago</Badge>
         )
+      case 'partial':
+        return (
+          <Badge variant="outline" className="border-amber-500 text-amber-600">
+            Parcial
+          </Badge>
+        )
       case 'overdue':
         return <Badge variant="destructive">Atrasado</Badge>
       default:
@@ -398,7 +501,7 @@ export default function Finance() {
             Centro Financeiro & Analytics
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gestão estratégica de receitas, despesas e otimização de agenda.
+            Gestão estratégica de receitas (DRE), fluxo de caixa e agenda.
           </p>
         </div>
         <div className="flex gap-2">
@@ -485,17 +588,34 @@ export default function Finance() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
-                  Receita Mensal
+                  Receita Bruta (Mês)
                 </CardTitle>
                 <TrendingUp className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-emerald-600">
-                  {formatBRL(monthlyPaidRev)}
+                  {formatBRL(monthlyGrossRev)}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {growth >= 0 ? '+' : ''}
                   {growth.toFixed(1)}% em relação ao mês anterior
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Caixa / Permutas
+                </CardTitle>
+                <RefreshCcw className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-xl font-bold text-blue-600">
+                  {formatBRL(monthlyCashIn)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  + {formatBRL(monthlyBarterIn)} em permutas
                 </p>
               </CardContent>
             </Card>
@@ -513,23 +633,6 @@ export default function Finance() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   Custos e repasses realizados
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Ticket Médio
-                </CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {formatBRL(ticketMedio)}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Por aluno ativo
                 </p>
               </CardContent>
             </Card>
@@ -610,51 +713,19 @@ export default function Finance() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Status</Label>
-                      <Select
-                        value={payData.status}
-                        onValueChange={(v: any) =>
-                          setPayData((d) => ({ ...d, status: v }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pending">Pendente</SelectItem>
-                          <SelectItem value="paid">Pago</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Data de Vencimento</Label>
-                    <Input
-                      type="date"
-                      value={payData.dataVencimento}
-                      onChange={(e) =>
-                        setPayData((d) => ({
-                          ...d,
-                          dataVencimento: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-                  {payData.status === 'paid' && (
-                    <div className="space-y-2">
-                      <Label>Data do Pagamento</Label>
+                      <Label>Data de Vencimento</Label>
                       <Input
                         type="date"
-                        value={payData.dataPagamento}
+                        value={payData.dataVencimento}
                         onChange={(e) =>
                           setPayData((d) => ({
                             ...d,
-                            dataPagamento: e.target.value,
+                            dataVencimento: e.target.value,
                           }))
                         }
                       />
                     </div>
-                  )}
+                  </div>
                   <div className="flex items-center justify-between border-t pt-4 mt-2">
                     <Label>Faturamento Recorrente Mensal?</Label>
                     <Switch
@@ -698,14 +769,34 @@ export default function Finance() {
                         <TableCell>{p.recorrente ? 'Sim' : 'Não'}</TableCell>
                         <TableCell className="text-right font-bold text-emerald-600">
                           {formatBRL(p.valorPago)}
+                          {p.status === 'partial' && (
+                            <div className="text-xs text-amber-600 font-normal">
+                              Falta: {formatBRL(p.saldo_restante || 0)}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>{statusBadge(p.status)}</TableCell>
                         <TableCell>
-                          {p.status !== 'paid' && (
+                          {(p.status === 'pending' ||
+                            p.status === 'partial' ||
+                            p.status === 'overdue') && (
                             <Button
                               variant="ghost"
                               size="sm"
-                              onClick={() => markPaymentPaid(p.id)}
+                              onClick={() => {
+                                setRegPayData({
+                                  paymentId: p.id,
+                                  valor_recebido: (
+                                    p.saldo_restante || p.valorPago
+                                  ).toString(),
+                                  forma_pagamento_id: '',
+                                  data_recebimento: new Date()
+                                    .toISOString()
+                                    .slice(0, 10),
+                                  observacoes: '',
+                                })
+                                setRegisterPayOpen(true)
+                              }}
                             >
                               <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                             </Button>
@@ -900,7 +991,8 @@ export default function Finance() {
             <CardHeader>
               <CardTitle>Fluxo de Caixa Dinâmico</CardTitle>
               <CardDescription>
-                Acúmulo diário projetado vs realizado neste mês.
+                Acúmulo diário projetado vs realizado neste mês (não considera
+                permutas).
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -966,20 +1058,36 @@ export default function Finance() {
 
           <Card>
             <CardHeader>
-              <CardTitle>Demonstração do Resultado (DRE) Automático</CardTitle>
+              <CardTitle>Demonstração do Resultado (DRE) Híbrida</CardTitle>
               <CardDescription>
-                Resultados financeiros realizados (status = pago) no mês atual.
+                Resultados financeiros realizados e não-monetários no mês atual.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableBody>
                   <TableRow>
-                    <TableCell className="font-medium text-lg">
+                    <TableCell className="font-bold text-lg">
                       Receita Bruta Total
                     </TableCell>
                     <TableCell className="text-right font-bold text-lg text-emerald-600">
                       {formatBRL(dre.gross)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="bg-muted/30">
+                    <TableCell className="pl-8 text-muted-foreground">
+                      Receita Financeira (Caixa)
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatBRL(dre.cashIn)}
+                    </TableCell>
+                  </TableRow>
+                  <TableRow className="bg-muted/30">
+                    <TableCell className="pl-8 text-muted-foreground">
+                      Receita Não Monetária (Permutas)
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {formatBRL(dre.barterIn)}
                     </TableCell>
                   </TableRow>
                   <TableRow>
@@ -1276,6 +1384,75 @@ export default function Finance() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={registerPayOpen} onOpenChange={setRegisterPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Recebimento Manual</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Forma de Pagamento</Label>
+              <Select
+                value={regPayData.forma_pagamento_id}
+                onValueChange={(v) =>
+                  setRegPayData((d) => ({ ...d, forma_pagamento_id: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantMethods.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Recebido (R$)</Label>
+              <Input
+                type="number"
+                value={regPayData.valor_recebido}
+                onChange={(e) =>
+                  setRegPayData((d) => ({
+                    ...d,
+                    valor_recebido: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data do Recebimento</Label>
+              <Input
+                type="date"
+                value={regPayData.data_recebimento}
+                onChange={(e) =>
+                  setRegPayData((d) => ({
+                    ...d,
+                    data_recebimento: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (Opcional)</Label>
+              <Input
+                value={regPayData.observacoes}
+                onChange={(e) =>
+                  setRegPayData((d) => ({ ...d, observacoes: e.target.value }))
+                }
+                placeholder="Ex: Detalhes da permuta, nº comprovante..."
+              />
+            </div>
+            <Button className="w-full mt-2" onClick={handleSaveManualPayment}>
+              Confirmar Recebimento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

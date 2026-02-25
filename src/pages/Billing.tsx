@@ -40,6 +40,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart'
+import { PieChart, Pie, Cell } from 'recharts'
 import { useToast } from '@/hooks/use-toast'
 import useAppStore from '@/stores/main'
 import { formatBRL, formatDate } from '@/lib/formatters'
@@ -54,6 +60,7 @@ import {
   Activity,
   ShieldAlert,
   Loader2,
+  RefreshCw,
 } from 'lucide-react'
 import { Payment } from '@/stores/mockData'
 
@@ -83,7 +90,9 @@ const StudentCheckoutMock = ({
             Valor a Pagar
           </span>
           <span className="font-bold text-xl text-primary">
-            {payment?.valorPago ? formatBRL(payment.valorPago) : 'R$ 0,00'}
+            {payment?.saldo_restante !== undefined
+              ? formatBRL(payment.saldo_restante)
+              : formatBRL(payment?.valorPago || 0)}
           </span>
         </div>
         <div className="pt-2 space-y-3">
@@ -113,11 +122,17 @@ const StudentCheckoutMock = ({
 export default function Billing() {
   const {
     payments,
+    paymentMethods,
+    permutas,
     subscriptions,
     students,
     gatewayConfigs,
     currentUser,
     addPayment,
+    updatePayment,
+    addPaymentMethod,
+    updatePaymentMethod,
+    addPermuta,
     addSubscription,
     updateGatewayConfig,
     runDelinquencyCheck,
@@ -128,7 +143,6 @@ export default function Billing() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    // Simula carregamento para evitar renderização nula e garantir que os dados estejam prontos
     const timer = setTimeout(() => setIsLoading(false), 500)
     return () => clearTimeout(timer)
   }, [])
@@ -136,6 +150,11 @@ export default function Billing() {
   const tenantPayments = useMemo(
     () => payments?.filter((p) => p.tenantId === currentUser?.tenantId) || [],
     [payments, currentUser],
+  )
+  const tenantMethods = useMemo(
+    () =>
+      paymentMethods?.filter((m) => m.tenantId === currentUser?.tenantId) || [],
+    [paymentMethods, currentUser],
   )
   const tenantSubscriptions = useMemo(
     () =>
@@ -176,13 +195,36 @@ export default function Billing() {
     periodicidade: 'monthly' as any,
   })
 
-  // Dashboard Metrics
-  const totalReceived = tenantPayments
-    .filter((p) => p.status === 'paid')
-    .reduce((acc, p) => acc + (p.valorPago || 0), 0)
-  const totalPending = tenantPayments
-    .filter((p) => p.status === 'pending')
-    .reduce((acc, p) => acc + (p.valorPago || 0), 0)
+  const [methFormOpen, setMethFormOpen] = useState(false)
+  const [methData, setMethData] = useState({
+    nome: '',
+    tipo: 'other',
+    online: false,
+  })
+
+  const [registerPayOpen, setRegisterPayOpen] = useState(false)
+  const [regPayData, setRegPayData] = useState({
+    paymentId: '',
+    valor_recebido: '',
+    forma_pagamento_id: '',
+    data_recebimento: new Date().toISOString().slice(0, 10),
+    observacoes: '',
+  })
+
+  const totalOnline = tenantPayments
+    .filter((p) => p.online && (p.status === 'paid' || p.status === 'partial'))
+    .reduce((acc, p) => acc + (p.valor_recebido || p.valorPago || 0), 0)
+  const totalOffline = tenantPayments
+    .filter(
+      (p) =>
+        !p.online &&
+        p.forma_pagamento_id !== 'pm-7' &&
+        (p.status === 'paid' || p.status === 'partial'),
+    )
+    .reduce((acc, p) => acc + (p.valor_recebido || p.valorPago || 0), 0)
+  const totalPermuta = permutas
+    .filter((p) => p.tenantId === currentUser?.tenantId)
+    .reduce((acc, p) => acc + p.valor_equivalente, 0)
   const mrr = tenantSubscriptions
     .filter((s) => s.status === 'active')
     .reduce((acc, s) => acc + (s.valor || 0), 0)
@@ -196,22 +238,53 @@ export default function Billing() {
   ).length
   const failureRate = totalCount ? (failureCount / totalCount) * 100 : 0
 
+  const paymentsByMethod = tenantPayments.reduce(
+    (acc, p) => {
+      if (p.status === 'paid' || p.status === 'partial') {
+        const pm = tenantMethods.find((m) => m.id === p.forma_pagamento_id)
+        const name = pm ? pm.nome : 'Outros'
+        acc[name] = (acc[name] || 0) + (p.valor_recebido || p.valorPago || 0)
+      }
+      return acc
+    },
+    {} as Record<string, number>,
+  )
+
+  const COLORS = [
+    '#10b981',
+    '#3b82f6',
+    '#f59e0b',
+    '#6366f1',
+    '#ec4899',
+    '#8b5cf6',
+    '#14b8a6',
+    '#f43f5e',
+  ]
+  const pieData = Object.entries(paymentsByMethod).map(([name, value], i) => ({
+    name,
+    value,
+    fill: COLORS[i % COLORS.length],
+  }))
+  const chartConfig = pieData.reduce((acc, item, idx) => {
+    acc[`method_${idx}`] = { label: item.name, color: item.fill }
+    return acc
+  }, {} as any)
+
   const handleSavePayment = () => {
     try {
       if (!payData.descricao || !payData.valorPago || !payData.alunoId) {
         toast({
           title: 'Aviso',
-          description:
-            'Preencha todos os campos obrigatórios para gerar a cobrança.',
+          description: 'Preencha todos os campos obrigatórios.',
           variant: 'destructive',
         })
         return
       }
-
       addPayment({
         alunoId: payData.alunoId,
         descricao: payData.descricao,
         valorPago: Number(payData.valorPago),
+        saldo_restante: Number(payData.valorPago),
         dataVencimento: payData.dataVencimento,
         status: 'pending',
         recorrente: false,
@@ -219,69 +292,72 @@ export default function Billing() {
         tipo: 'one_off',
       })
       setPayFormOpen(false)
-      toast({ title: 'Cobrança gerada! Link de pagamento disponível.' })
+      toast({ title: 'Cobrança gerada com sucesso!' })
     } catch (error) {
       toast({
-        title: 'Erro no Gateway',
-        description:
-          'Falha de comunicação ao tentar processar a cobrança. Tente novamente.',
+        title: 'Erro',
+        description: 'Falha ao processar.',
         variant: 'destructive',
       })
     }
   }
 
-  const handleSaveSubscription = () => {
-    try {
-      if (!subData.valor || !subData.alunoId) {
-        toast({
-          title: 'Aviso',
-          description:
-            'Preencha todos os campos obrigatórios para criar a assinatura.',
-          variant: 'destructive',
-        })
-        return
-      }
+  const handleSaveMethod = () => {
+    if (!methData.nome) return
+    addPaymentMethod({
+      nome: methData.nome,
+      tipo: methData.tipo as any,
+      online: methData.online,
+      gera_taxa: methData.online,
+      ativo: true,
+    })
+    setMethFormOpen(false)
+    toast({ title: 'Forma de pagamento adicionada!' })
+  }
 
-      addSubscription({
-        alunoId: subData.alunoId,
-        valor: Number(subData.valor),
-        periodicidade: subData.periodicidade,
-        gateway: config.gateway as any,
-        gateway_subscription_id: `sub_${Date.now()}`,
-        status: 'active',
-        proxima_cobranca: new Date(
-          new Date().setMonth(new Date().getMonth() + 1),
-        )
-          .toISOString()
-          .slice(0, 10),
-      })
-      setSubFormOpen(false)
-      toast({ title: 'Assinatura criada com sucesso via Gateway.' })
-    } catch (error) {
-      toast({
-        title: 'Erro no Gateway',
-        description:
-          'Não foi possível registrar a assinatura recorrente no momento.',
-        variant: 'destructive',
+  const handleSaveManualPayment = () => {
+    if (!regPayData.forma_pagamento_id || !regPayData.valor_recebido) return
+    const payment = tenantPayments.find((p) => p.id === regPayData.paymentId)
+    if (!payment) return
+
+    const pm = tenantMethods.find((m) => m.id === regPayData.forma_pagamento_id)
+    const isPermuta = pm?.tipo === 'barter'
+    const valueReceived = Number(regPayData.valor_recebido)
+
+    const newTotalReceived = (payment.valor_recebido || 0) + valueReceived
+    const newRestante = payment.valorPago - newTotalReceived
+    const status = newRestante <= 0 ? 'paid' : 'partial'
+
+    updatePayment(payment.id, {
+      valor_recebido: newTotalReceived,
+      saldo_restante: newRestante,
+      status,
+      dataPagamento: regPayData.data_recebimento,
+      forma_pagamento_id: pm?.id,
+      online: pm?.online,
+      observacoes: regPayData.observacoes,
+    })
+
+    if (isPermuta && payment.alunoId) {
+      addPermuta({
+        alunoId: payment.alunoId,
+        valor_equivalente: valueReceived,
+        descricao: regPayData.observacoes || payment.descricao,
+        data: regPayData.data_recebimento,
       })
     }
+
+    setRegisterPayOpen(false)
+    toast({ title: 'Recebimento registrado com sucesso!' })
   }
 
   const handleDelinquencyCheck = () => {
-    try {
-      runDelinquencyCheck(5)
-      toast({
-        title: 'Varredura Concluída',
-        description:
-          'Inadimplentes identificados e agendamentos futuros bloqueados.',
-      })
-    } catch (error) {
-      toast({
-        title: 'Erro na varredura',
-        description: 'Não foi possível completar a análise de inadimplência.',
-        variant: 'destructive',
-      })
-    }
+    runDelinquencyCheck(5)
+    toast({
+      title: 'Varredura Concluída',
+      description:
+        'Inadimplentes identificados e agenda bloqueada para contratos expirados.',
+    })
   }
 
   const getStatusBadge = (status: string) => {
@@ -289,6 +365,12 @@ export default function Billing() {
       case 'paid':
         return (
           <Badge className="bg-emerald-500 hover:bg-emerald-600">Pago</Badge>
+        )
+      case 'partial':
+        return (
+          <Badge variant="outline" className="border-amber-500 text-amber-600">
+            Parcial
+          </Badge>
         )
       case 'overdue':
         return <Badge variant="destructive">Atrasado</Badge>
@@ -320,8 +402,7 @@ export default function Billing() {
             <CreditCard className="w-8 h-8" /> Cobranças & Assinaturas
           </h1>
           <p className="text-muted-foreground mt-1">
-            Gestão inteligente de recebimentos integrados com Stripe, Pagar.me e
-            InfinitePay.
+            Gestão inteligente de recebimentos online, manuais e permutas.
           </p>
         </div>
         <Button
@@ -335,12 +416,11 @@ export default function Billing() {
 
       <Tabs defaultValue="dashboard" className="w-full">
         <TabsList className="mb-6 flex flex-wrap h-auto justify-start">
-          <TabsTrigger value="dashboard">Dashboard Financeiro</TabsTrigger>
+          <TabsTrigger value="dashboard">Dashboard Híbrido</TabsTrigger>
           <TabsTrigger value="charges">Cobranças Avulsas</TabsTrigger>
-          <TabsTrigger value="subscriptions">
-            Assinaturas Recorrentes
-          </TabsTrigger>
-          <TabsTrigger value="config">Configuração de Gateway</TabsTrigger>
+          <TabsTrigger value="subscriptions">Assinaturas</TabsTrigger>
+          <TabsTrigger value="methods">Formas de Pagamento</TabsTrigger>
+          <TabsTrigger value="config">Gateways</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -352,9 +432,8 @@ export default function Billing() {
                   Alerta de Inteligência Financeira
                 </h4>
                 <p className="text-sm opacity-90">
-                  Sua taxa de inadimplência/falha está alta. A varredura de
-                  bloqueio automático é recomendada para forçar a regularização
-                  dos alunos.
+                  A inadimplência está alta. Utilize os bloqueios automáticos de
+                  agenda para incentivar a regularização.
                 </p>
               </div>
             </div>
@@ -364,44 +443,45 @@ export default function Billing() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                  MRR (Receita Recorrente){' '}
-                  <Activity className="w-4 h-4 text-emerald-500" />
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{formatBRL(mrr)}</div>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                  Receita Recebida{' '}
-                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                  Online (Gateway){' '}
+                  <Activity className="w-4 h-4 text-blue-500" />
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatBRL(totalReceived)}
+                  {formatBRL(totalOnline)}
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                  Receita Pendente{' '}
-                  <Activity className="w-4 h-4 text-amber-500" />
+                  Offline (Manual){' '}
+                  <CheckCircle2 className="w-4 h-4 text-slate-500" />
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {formatBRL(totalPending)}
+                  {formatBRL(totalOffline)}
                 </div>
               </CardContent>
             </Card>
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
-                  Taxa Inadimplência{' '}
+                  Permutas <RefreshCw className="w-4 h-4 text-purple-500" />
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {formatBRL(totalPermuta)}
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
+                  Inadimplência{' '}
                   <AlertTriangle className="w-4 h-4 text-rose-500" />
                 </CardTitle>
               </CardHeader>
@@ -412,6 +492,46 @@ export default function Billing() {
               </CardContent>
             </Card>
           </div>
+
+          {pieData.length > 0 && (
+            <Card className="max-w-md">
+              <CardHeader>
+                <CardTitle className="text-lg">
+                  Distribuição por Forma de Pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex justify-center">
+                <ChartContainer
+                  config={chartConfig}
+                  className="h-[250px] w-full"
+                >
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      dataKey="value"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip
+                      content={
+                        <ChartTooltipContent
+                          formatter={(v) => formatBRL(v as number)}
+                        />
+                      }
+                    />
+                  </PieChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="charges" className="space-y-4">
@@ -424,7 +544,7 @@ export default function Billing() {
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Criar Link de Pagamento</DialogTitle>
+                  <DialogTitle>Criar Nova Cobrança</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
@@ -436,14 +556,9 @@ export default function Billing() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o aluno" />
+                        <SelectValue placeholder="Selecione..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {tenantStudents.length === 0 && (
-                          <SelectItem value="none" disabled>
-                            Nenhum aluno cadastrado
-                          </SelectItem>
-                        )}
                         {tenantStudents.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.nome}
@@ -459,7 +574,6 @@ export default function Billing() {
                       onChange={(e) =>
                         setPayData((d) => ({ ...d, descricao: e.target.value }))
                       }
-                      placeholder="Ex: Avaliação Funcional"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -491,7 +605,7 @@ export default function Billing() {
                     </div>
                   </div>
                   <Button className="w-full mt-2" onClick={handleSavePayment}>
-                    Gerar Cobrança (API)
+                    Gerar Cobrança
                   </Button>
                 </div>
               </DialogContent>
@@ -506,110 +620,93 @@ export default function Billing() {
                     <TableHead>Vencimento</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Aluno</TableHead>
-                    <TableHead>Gateway</TableHead>
+                    <TableHead>Gateway/Forma</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantPayments.length === 0 ? (
+                  {tenantPayments.map((p) => {
+                    const stu = tenantStudents.find((s) => s.id === p.alunoId)
+                    const pm = tenantMethods.find(
+                      (m) => m.id === p.forma_pagamento_id,
+                    )
+                    return (
+                      <TableRow key={p.id}>
+                        <TableCell>
+                          {p.dataVencimento
+                            ? formatDate(p.dataVencimento)
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {p.descricao || '-'}
+                        </TableCell>
+                        <TableCell>{stu?.nome || '-'}</TableCell>
+                        <TableCell className="capitalize text-muted-foreground">
+                          {pm?.nome || p.gateway || 'Manual'}
+                        </TableCell>
+                        <TableCell className="text-right font-bold">
+                          {formatBRL(p.valorPago)}
+                          {p.status === 'partial' && (
+                            <div className="text-xs text-amber-600 font-normal">
+                              Falta: {formatBRL(p.saldo_restante || 0)}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>{getStatusBadge(p.status)}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {(p.status === 'pending' ||
+                                p.status === 'partial' ||
+                                p.status === 'overdue') && (
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setRegPayData({
+                                      paymentId: p.id,
+                                      valor_recebido: (
+                                        p.saldo_restante || p.valorPago
+                                      ).toString(),
+                                      forma_pagamento_id: '',
+                                      data_recebimento: new Date()
+                                        .toISOString()
+                                        .slice(0, 10),
+                                      observacoes: '',
+                                    })
+                                    setRegisterPayOpen(true)
+                                  }}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-2 text-primary" />{' '}
+                                  Registrar Recebimento
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setCheckoutPayment(p)
+                                  setCheckoutOpen(true)
+                                }}
+                              >
+                                <LinkIcon className="w-4 h-4 mr-2 text-blue-500" />{' '}
+                                Link do Aluno (Checkout)
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {tenantPayments.length === 0 && (
                     <TableRow>
-                      <TableCell
-                        colSpan={7}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        Nenhuma cobrança registrada.
+                      <TableCell colSpan={7} className="text-center h-24">
+                        Nenhuma cobrança
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    tenantPayments.map((p) => {
-                      const stu = tenantStudents.find((s) => s.id === p.alunoId)
-                      return (
-                        <TableRow key={p.id}>
-                          <TableCell>
-                            {p.dataVencimento
-                              ? formatDate(p.dataVencimento)
-                              : '-'}
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {p.descricao || '-'}
-                          </TableCell>
-                          <TableCell>{stu?.nome || '-'}</TableCell>
-                          <TableCell className="capitalize text-muted-foreground">
-                            {p.gateway || 'Manual'}
-                          </TableCell>
-                          <TableCell className="text-right font-bold">
-                            {p.valorPago != null ? formatBRL(p.valorPago) : '-'}
-                          </TableCell>
-                          <TableCell>{getStatusBadge(p.status)}</TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setCheckoutPayment(p)
-                                    setCheckoutOpen(true)
-                                  }}
-                                >
-                                  <LinkIcon className="w-4 h-4 mr-2 text-primary" />{' '}
-                                  Link do Aluno (Checkout)
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    try {
-                                      simulateWebhook(p.id, 'paid')
-                                      toast({
-                                        title: 'Sucesso',
-                                        description:
-                                          'Cobrança marcada como aprovada.',
-                                      })
-                                    } catch (e) {
-                                      toast({
-                                        title: 'Erro',
-                                        description:
-                                          'Não foi possível atualizar o status.',
-                                        variant: 'destructive',
-                                      })
-                                    }
-                                  }}
-                                >
-                                  <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />{' '}
-                                  Webhook: Aprovado
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    try {
-                                      simulateWebhook(p.id, 'failed')
-                                      toast({
-                                        title: 'Aviso',
-                                        description:
-                                          'Cobrança marcada como recusada.',
-                                      })
-                                    } catch (e) {
-                                      toast({
-                                        title: 'Erro',
-                                        description:
-                                          'Não foi possível atualizar o status.',
-                                        variant: 'destructive',
-                                      })
-                                    }
-                                  }}
-                                >
-                                  <AlertTriangle className="w-4 h-4 mr-2 text-rose-500" />{' '}
-                                  Webhook: Recusado
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
                   )}
                 </TableBody>
               </Table>
@@ -617,146 +714,158 @@ export default function Billing() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="subscriptions" className="space-y-4">
+        <TabsContent value="methods" className="space-y-4">
           <div className="flex justify-end">
-            <Dialog open={subFormOpen} onOpenChange={setSubFormOpen}>
+            <Dialog open={methFormOpen} onOpenChange={setMethFormOpen}>
               <DialogTrigger asChild>
                 <Button>
-                  <Plus className="w-4 h-4 mr-2" /> Nova Assinatura
+                  <Plus className="w-4 h-4 mr-2" /> Nova Forma
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Criar Assinatura Recorrente</DialogTitle>
+                  <DialogTitle>Nova Forma de Pagamento</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
                   <div className="space-y-2">
-                    <Label>Aluno</Label>
+                    <Label>Nome (Identificação)</Label>
+                    <Input
+                      value={methData.nome}
+                      onChange={(e) =>
+                        setMethData((d) => ({ ...d, nome: e.target.value }))
+                      }
+                      placeholder="Ex: Criptomoeda, Vale..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Categoria / Tipo</Label>
                     <Select
-                      value={subData.alunoId}
+                      value={methData.tipo}
                       onValueChange={(v) =>
-                        setSubData((d) => ({ ...d, alunoId: v }))
+                        setMethData((d) => ({ ...d, tipo: v }))
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Selecione o aluno" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {tenantStudents.length === 0 && (
-                          <SelectItem value="none" disabled>
-                            Nenhum aluno cadastrado
-                          </SelectItem>
-                        )}
-                        {tenantStudents.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.nome}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="transfer">Transferência</SelectItem>
+                        <SelectItem value="barter">Permuta</SelectItem>
+                        <SelectItem value="other">Outros</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Valor Recorrente (R$)</Label>
-                      <Input
-                        type="number"
-                        value={subData.valor}
-                        onChange={(e) =>
-                          setSubData((d) => ({ ...d, valor: e.target.value }))
-                        }
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Periodicidade</Label>
-                      <Select
-                        value={subData.periodicidade}
-                        onValueChange={(v) =>
-                          setSubData((d) => ({ ...d, periodicidade: v }))
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="weekly">Semanal</SelectItem>
-                          <SelectItem value="biweekly">Quinzenal</SelectItem>
-                          <SelectItem value="monthly">Mensal</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                  <div className="flex items-center justify-between border-t pt-4">
+                    <Label>É Transação Online?</Label>
+                    <Switch
+                      checked={methData.online}
+                      onCheckedChange={(v) =>
+                        setMethData((d) => ({ ...d, online: v }))
+                      }
+                    />
                   </div>
-                  <Button
-                    className="w-full mt-2"
-                    onClick={handleSaveSubscription}
-                  >
-                    Ativar Assinatura no Gateway
+                  <Button className="w-full mt-2" onClick={handleSaveMethod}>
+                    Adicionar Forma
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
+          <Card>
+            <CardContent className="p-0 overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nome</TableHead>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Modalidade</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {tenantMethods.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="font-medium">{m.nome}</TableCell>
+                      <TableCell className="capitalize text-muted-foreground">
+                        {m.tipo.replace('_', ' ')}
+                      </TableCell>
+                      <TableCell>
+                        {m.online ? (
+                          <Badge className="bg-blue-100 text-blue-800 border-transparent">
+                            Online
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-slate-100 text-slate-800 border-transparent">
+                            Offline
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Switch
+                          checked={m.ativo}
+                          onCheckedChange={(v) =>
+                            updatePaymentMethod(m.id, { ativo: v })
+                          }
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
+        <TabsContent value="subscriptions" className="space-y-4">
           <Card>
             <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Aluno</TableHead>
-                    <TableHead>Plano / Frequência</TableHead>
+                    <TableHead>Frequência</TableHead>
                     <TableHead>Próx. Cobrança</TableHead>
-                    <TableHead>Gateway ID</TableHead>
                     <TableHead className="text-right">Valor</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantSubscriptions.length === 0 ? (
+                  {tenantSubscriptions.map((s) => {
+                    const stu = tenantStudents.find((st) => st.id === s.alunoId)
+                    return (
+                      <TableRow key={s.id}>
+                        <TableCell className="font-medium">
+                          {stu?.nome || '-'}
+                        </TableCell>
+                        <TableCell className="capitalize">
+                          {s.periodicidade}
+                        </TableCell>
+                        <TableCell>
+                          {s.proxima_cobranca
+                            ? formatDate(s.proxima_cobranca)
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-primary">
+                          {formatBRL(s.valor)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              s.status === 'active' ? 'default' : 'destructive'
+                            }
+                          >
+                            {s.status === 'active' ? 'Ativa' : 'Falha'}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {tenantSubscriptions.length === 0 && (
                     <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        Nenhuma assinatura recorrente encontrada.
+                      <TableCell colSpan={5} className="text-center h-24">
+                        Nenhuma assinatura
                       </TableCell>
                     </TableRow>
-                  ) : (
-                    tenantSubscriptions.map((s) => {
-                      const stu = tenantStudents.find(
-                        (st) => st.id === s.alunoId,
-                      )
-                      return (
-                        <TableRow key={s.id}>
-                          <TableCell className="font-medium">
-                            {stu?.nome || '-'}
-                          </TableCell>
-                          <TableCell className="capitalize">
-                            {s.periodicidade || '-'}
-                          </TableCell>
-                          <TableCell>
-                            {s.proxima_cobranca
-                              ? formatDate(s.proxima_cobranca)
-                              : '-'}
-                          </TableCell>
-                          <TableCell className="text-xs text-muted-foreground font-mono">
-                            {s.gateway_subscription_id || '-'}
-                          </TableCell>
-                          <TableCell className="text-right font-bold text-primary">
-                            {s.valor != null ? formatBRL(s.valor) : '-'}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                s.status === 'active'
-                                  ? 'default'
-                                  : 'destructive'
-                              }
-                            >
-                              {s.status === 'active' ? 'Ativa' : 'Falha'}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })
                   )}
                 </TableBody>
               </Table>
@@ -768,10 +877,6 @@ export default function Billing() {
           <Card>
             <CardHeader>
               <CardTitle>Integração de Pagamentos</CardTitle>
-              <CardDescription>
-                Conecte sua conta do gateway para processamento automático via
-                Tokenização (LGPD).
-              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -803,29 +908,6 @@ export default function Billing() {
                   placeholder="pk_live_..."
                 />
               </div>
-
-              <div className="space-y-4 mt-6 p-4 border rounded-md bg-muted/10">
-                <h3 className="font-semibold text-lg flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-primary" /> Configuração de
-                  Split (Repasse)
-                </h3>
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="font-medium">Modo Split Automático</p>
-                    <p className="text-sm text-muted-foreground">
-                      Retém a taxa da plataforma diretamente no gateway,
-                      enviando o líquido para sua conta.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={config.splitMode === 'split'}
-                    onCheckedChange={(v) =>
-                      updateGatewayConfig({ splitMode: v ? 'split' : 'simple' })
-                    }
-                  />
-                </div>
-              </div>
-
               <Button
                 className="w-full"
                 onClick={() => toast({ title: 'Configurações Salvas' })}
@@ -837,6 +919,77 @@ export default function Billing() {
         </TabsContent>
       </Tabs>
 
+      <Dialog open={registerPayOpen} onOpenChange={setRegisterPayOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Registrar Recebimento Manual</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label>Forma de Pagamento</Label>
+              <Select
+                value={regPayData.forma_pagamento_id}
+                onValueChange={(v) =>
+                  setRegPayData((d) => ({ ...d, forma_pagamento_id: v }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenantMethods
+                    .filter((m) => m.ativo)
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.nome}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor Recebido (R$)</Label>
+              <Input
+                type="number"
+                value={regPayData.valor_recebido}
+                onChange={(e) =>
+                  setRegPayData((d) => ({
+                    ...d,
+                    valor_recebido: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Data do Recebimento</Label>
+              <Input
+                type="date"
+                value={regPayData.data_recebimento}
+                onChange={(e) =>
+                  setRegPayData((d) => ({
+                    ...d,
+                    data_recebimento: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Observações (Opcional)</Label>
+              <Input
+                value={regPayData.observacoes}
+                onChange={(e) =>
+                  setRegPayData((d) => ({ ...d, observacoes: e.target.value }))
+                }
+                placeholder="Ex: Detalhes da permuta, nº comprovante..."
+              />
+            </div>
+            <Button className="w-full mt-2" onClick={handleSaveManualPayment}>
+              Confirmar Recebimento
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
         <DialogContent className="sm:max-w-md p-0 border-0 bg-transparent shadow-none">
           {checkoutPayment && (
@@ -845,12 +998,12 @@ export default function Billing() {
               onPay={() => {
                 try {
                   simulateWebhook(checkoutPayment.id, 'paid')
-                  toast({ title: 'Simulação: Pagamento Aprovado!' })
+                  toast({ title: 'Simulação: Pagamento Aprovado via Gateway!' })
                   setCheckoutOpen(false)
                 } catch (error) {
                   toast({
                     title: 'Erro',
-                    description: 'Não foi possível aprovar o pagamento',
+                    description: 'Falha',
                     variant: 'destructive',
                   })
                 }

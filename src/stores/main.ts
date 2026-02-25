@@ -25,6 +25,8 @@ import {
   AnalyticsAgenda,
   Subscription,
   GatewayConfig,
+  PaymentMethod,
+  Permuta,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -43,6 +45,8 @@ import {
   mockAnalyticsAgenda,
   mockSubscriptions,
   mockGatewayConfigs,
+  mockPaymentMethods,
+  mockPermutas,
   themeOptions,
 } from './mockData'
 
@@ -54,6 +58,8 @@ type AppState = {
   locations: Location[]
   students: Student[]
   payments: Payment[]
+  paymentMethods: PaymentMethod[]
+  permutas: Permuta[]
   subscriptions: Subscription[]
   gatewayConfigs: GatewayConfig[]
   expenses: Expense[]
@@ -81,6 +87,8 @@ type AppActions = {
     justification?: string,
   ) => void
   addStudent: (stu: Omit<Student, 'id' | 'tenantId' | 'avatarUrl'>) => void
+  updateStudent: (id: string, updates: Partial<Student>) => void
+  updateStudentConsent: (id: string, consent: boolean) => void
   addPlan: (plan: Omit<Plan, 'id' | 'tenantId'>) => void
   addSession: (
     session: Omit<
@@ -95,6 +103,9 @@ type AppActions = {
   ) => void
   addPayment: (payment: Omit<Payment, 'id' | 'tenantId'>) => void
   updatePayment: (id: string, updates: Partial<Payment>) => void
+  addPaymentMethod: (pm: Omit<PaymentMethod, 'id' | 'tenantId'>) => void
+  updatePaymentMethod: (id: string, updates: Partial<PaymentMethod>) => void
+  addPermuta: (permuta: Omit<Permuta, 'id' | 'tenantId'>) => void
   addSubscription: (sub: Omit<Subscription, 'id' | 'tenantId'>) => void
   updateSubscription: (id: string, updates: Partial<Subscription>) => void
   updateGatewayConfig: (updates: Partial<GatewayConfig>) => void
@@ -124,7 +135,6 @@ type AppActions = {
     customContent?: string,
   ) => void
   updateWhatsAppConfig: (updates: Partial<WhatsAppConfig>) => void
-  updateStudentConsent: (id: string, consent: boolean) => void
   addEvent: (
     event: Omit<AgendaEvent, 'id' | 'tenantId'>,
     recurrenceWeeks?: number,
@@ -145,6 +155,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     locations: mockLocations,
     students: mockStudents,
     payments: mockPayments,
+    paymentMethods: mockPaymentMethods,
+    permutas: mockPermutas,
     subscriptions: mockSubscriptions,
     gatewayConfigs: mockGatewayConfigs,
     expenses: mockExpenses,
@@ -165,9 +177,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     currentLocationId: 'all',
   })
 
-  useEffect(() => {
-    // Basic auto-generations from previous mock...
-  }, [])
+  useEffect(() => {}, [])
 
   const actions = useMemo<AppActions>(
     () => ({
@@ -216,6 +226,13 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             },
             ...prev.students,
           ],
+        })),
+      updateStudent: (id, updates) =>
+        setState((prev) => ({
+          ...prev,
+          students: prev.students.map((s) =>
+            s.id === id ? { ...s, ...updates } : s,
+          ),
         })),
       addPlan: (plan) =>
         setState((prev) => ({
@@ -268,6 +285,37 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           payments: prev.payments.map((p) =>
             p.id === id ? { ...p, ...updates } : p,
           ),
+        })),
+      addPaymentMethod: (pm) =>
+        setState((prev) => ({
+          ...prev,
+          paymentMethods: [
+            {
+              ...pm,
+              id: `pm-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.paymentMethods,
+          ],
+        })),
+      updatePaymentMethod: (id, updates) =>
+        setState((prev) => ({
+          ...prev,
+          paymentMethods: prev.paymentMethods.map((m) =>
+            m.id === id ? { ...m, ...updates } : m,
+          ),
+        })),
+      addPermuta: (permuta) =>
+        setState((prev) => ({
+          ...prev,
+          permutas: [
+            {
+              ...permuta,
+              id: `perm-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.permutas,
+          ],
         })),
 
       addSubscription: (sub) =>
@@ -328,7 +376,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           let changed = false
 
           newPayments.forEach((p) => {
-            if (p.status === 'pending') {
+            if (p.status === 'pending' || p.status === 'partial') {
               const due = new Date(p.dataVencimento)
               const diffDays = Math.floor(
                 (now.getTime() - due.getTime()) / (1000 * 3600 * 24),
@@ -350,7 +398,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           const newEvents = prev.events.map((e) => {
             if (e.status === 'scheduled') {
               const s = newStudents.find((st) => st.id === e.studentId)
-              if (s?.status === 'delinquent') {
+              if (s?.status === 'delinquent' && s.bloquear_inadimplente) {
                 changed = true
                 return {
                   ...e,
@@ -374,18 +422,27 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
       simulateWebhook: (paymentId, status) =>
         setState((prev) => {
-          const newPayments = prev.payments.map((p) =>
-            p.id === paymentId
-              ? {
-                  ...p,
-                  status,
-                  dataPagamento:
-                    status === 'paid'
-                      ? new Date().toISOString().slice(0, 10)
-                      : p.dataPagamento,
-                }
-              : p,
-          )
+          const newPayments = prev.payments.map((p) => {
+            if (p.id === paymentId) {
+              const pmOnline = prev.paymentMethods.find(
+                (m) => m.tipo === 'credit_card',
+              )
+              return {
+                ...p,
+                status,
+                dataPagamento:
+                  status === 'paid'
+                    ? new Date().toISOString().slice(0, 10)
+                    : p.dataPagamento,
+                valor_recebido:
+                  status === 'paid' ? p.valorPago : p.valor_recebido,
+                saldo_restante: status === 'paid' ? 0 : p.saldo_restante,
+                online: true,
+                forma_pagamento_id: pmOnline?.id,
+              }
+            }
+            return p
+          })
           return { ...prev, payments: newPayments }
         }),
 
@@ -465,9 +522,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             (t) => t.id !== id,
           ),
         })),
-      sendCommunication: (targetIds, templateId, customContent) => {
-        // Mock logic from previous code
-      },
+      sendCommunication: (targetIds, templateId, customContent) => {},
       updateWhatsAppConfig: (updates) =>
         setState((prev) => ({
           ...prev,
@@ -483,7 +538,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           ),
         })),
 
-      // AGENDA ACTIONS
       addEvent: (event, recurrenceWeeks = 0) =>
         setState((prev) => {
           const newEvents = []
@@ -539,6 +593,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
                   alunoId: merged.studentId!,
                   descricao: `Sessão ${merged.title} - ${merged.date}`,
                   valorPago: merged.value,
+                  saldo_restante: merged.value,
                   dataVencimento: merged.date,
                   status: 'pending',
                   recorrente: false,
