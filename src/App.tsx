@@ -5,6 +5,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AppProvider } from '@/stores/main'
 
 import Layout from './components/Layout'
+import Landing from './pages/Landing'
 import Index from './pages/Index'
 import Locations from './pages/Locations'
 import Students from './pages/Students'
@@ -30,8 +31,9 @@ const App = () => (
         <Toaster />
         <Sonner />
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<Index />} />
+            <Route path="/dashboard" element={<Index />} />
             <Route path="/agenda" element={<Agenda />} />
             <Route path="/locais" element={<Locations />} />
             <Route path="/alunos" element={<Students />} />

@@ -33,13 +33,13 @@ export function AppSidebar() {
   const { theme, currentUser } = useAppStore()
 
   const masterItems = [
-    { title: 'Painel Master', url: '/', icon: LayoutDashboard },
+    { title: 'Painel Master', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Inquilinos', url: '/inquilinos', icon: Building2 },
     { title: 'Planos Globais', url: '/planos', icon: Package },
   ]
 
   const profItems = [
-    { title: 'Dashboard', url: '/', icon: LayoutDashboard },
+    { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
     { title: 'Agenda', url: '/agenda', icon: CalendarDays },
     { title: 'Academia INNOVA', url: '/academia', icon: GraduationCap },
     { title: 'Alunos', url: '/alunos', icon: Users },
