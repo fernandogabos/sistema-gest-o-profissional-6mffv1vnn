@@ -12,6 +12,7 @@ import {
   ClipboardCheck,
   MessageSquare,
   CalendarDays,
+  CreditCard,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -45,6 +46,7 @@ export function AppSidebar() {
     { title: 'Locais', url: '/locais', icon: MapPin },
     { title: 'Sessões', url: '/sessoes', icon: Activity },
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },
+    { title: 'Cobranças', url: '/cobrancas', icon: CreditCard },
     { title: 'Treinos', url: '/treinos', icon: Dumbbell },
     { title: 'Planos', url: '/planos', icon: Package },
     { title: 'Configurações', url: '/configuracoes', icon: Settings },

@@ -23,6 +23,8 @@ import {
   WhatsAppConfig,
   AgendaEvent,
   AnalyticsAgenda,
+  Subscription,
+  GatewayConfig,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -39,6 +41,8 @@ import {
   mockWhatsAppConfigs,
   mockEvents,
   mockAnalyticsAgenda,
+  mockSubscriptions,
+  mockGatewayConfigs,
   themeOptions,
 } from './mockData'
 
@@ -50,6 +54,8 @@ type AppState = {
   locations: Location[]
   students: Student[]
   payments: Payment[]
+  subscriptions: Subscription[]
+  gatewayConfigs: GatewayConfig[]
   expenses: Expense[]
   sessions: Session[]
   auditLogs: AuditLog[]
@@ -89,6 +95,11 @@ type AppActions = {
   ) => void
   addPayment: (payment: Omit<Payment, 'id' | 'tenantId'>) => void
   updatePayment: (id: string, updates: Partial<Payment>) => void
+  addSubscription: (sub: Omit<Subscription, 'id' | 'tenantId'>) => void
+  updateSubscription: (id: string, updates: Partial<Subscription>) => void
+  updateGatewayConfig: (updates: Partial<GatewayConfig>) => void
+  runDelinquencyCheck: (thresholdDays: number) => void
+  simulateWebhook: (paymentId: string, status: any) => void
   addExpense: (expense: Omit<Expense, 'id' | 'tenantId'>) => void
   updateExpense: (id: string, updates: Partial<Expense>) => void
   addEvaluationTemplate: (
@@ -134,6 +145,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     locations: mockLocations,
     students: mockStudents,
     payments: mockPayments,
+    subscriptions: mockSubscriptions,
+    gatewayConfigs: mockGatewayConfigs,
     expenses: mockExpenses,
     sessions: mockSessions,
     auditLogs: mockAuditLogs,
@@ -256,6 +269,126 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             p.id === id ? { ...p, ...updates } : p,
           ),
         })),
+
+      addSubscription: (sub) =>
+        setState((prev) => ({
+          ...prev,
+          subscriptions: [
+            {
+              ...sub,
+              id: `sub-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+            },
+            ...prev.subscriptions,
+          ],
+        })),
+      updateSubscription: (id, updates) =>
+        setState((prev) => ({
+          ...prev,
+          subscriptions: prev.subscriptions.map((s) =>
+            s.id === id ? { ...s, ...updates } : s,
+          ),
+        })),
+
+      updateGatewayConfig: (updates) =>
+        setState((prev) => {
+          const exists = prev.gatewayConfigs.find(
+            (c) => c.tenantId === prev.currentUser.tenantId,
+          )
+          if (exists) {
+            return {
+              ...prev,
+              gatewayConfigs: prev.gatewayConfigs.map((c) =>
+                c.tenantId === prev.currentUser.tenantId
+                  ? { ...c, ...updates }
+                  : c,
+              ),
+            }
+          }
+          return {
+            ...prev,
+            gatewayConfigs: [
+              {
+                ...updates,
+                tenantId: prev.currentUser.tenantId!,
+                gateway: 'stripe',
+                isActive: true,
+                splitMode: 'simple',
+              } as GatewayConfig,
+              ...prev.gatewayConfigs,
+            ],
+          }
+        }),
+
+      runDelinquencyCheck: (threshold) =>
+        setState((prev) => {
+          const now = new Date()
+          const newStudents = [...prev.students]
+          const newPayments = [...prev.payments]
+          let changed = false
+
+          newPayments.forEach((p) => {
+            if (p.status === 'pending') {
+              const due = new Date(p.dataVencimento)
+              const diffDays = Math.floor(
+                (now.getTime() - due.getTime()) / (1000 * 3600 * 24),
+              )
+              if (diffDays >= threshold) {
+                p.status = 'overdue'
+                changed = true
+                const sIdx = newStudents.findIndex((s) => s.id === p.alunoId)
+                if (sIdx >= 0 && newStudents[sIdx].status !== 'delinquent') {
+                  newStudents[sIdx] = {
+                    ...newStudents[sIdx],
+                    status: 'delinquent',
+                  }
+                }
+              }
+            }
+          })
+
+          const newEvents = prev.events.map((e) => {
+            if (e.status === 'scheduled') {
+              const s = newStudents.find((st) => st.id === e.studentId)
+              if (s?.status === 'delinquent') {
+                changed = true
+                return {
+                  ...e,
+                  status: 'canceled_student',
+                  notes: 'Bloqueio Automático: Inadimplência',
+                }
+              }
+            }
+            return e
+          })
+
+          return changed
+            ? {
+                ...prev,
+                students: newStudents,
+                payments: newPayments,
+                events: newEvents,
+              }
+            : prev
+        }),
+
+      simulateWebhook: (paymentId, status) =>
+        setState((prev) => {
+          const newPayments = prev.payments.map((p) =>
+            p.id === paymentId
+              ? {
+                  ...p,
+                  status,
+                  dataPagamento:
+                    status === 'paid'
+                      ? new Date().toISOString().slice(0, 10)
+                      : p.dataPagamento,
+                }
+              : p,
+          )
+          return { ...prev, payments: newPayments }
+        }),
+
       addExpense: (expense) =>
         setState((prev) => ({
           ...prev,

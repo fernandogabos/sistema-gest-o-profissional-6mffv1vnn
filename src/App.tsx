@@ -9,6 +9,7 @@ import Index from './pages/Index'
 import Locations from './pages/Locations'
 import Students from './pages/Students'
 import Finance from './pages/Finance'
+import Billing from './pages/Billing'
 import Workouts from './pages/Workouts'
 import Settings from './pages/Settings'
 import Tenants from './pages/Tenants'
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/avaliacoes" element={<Evaluations />} />
             <Route path="/comunicacao" element={<Communication />} />
             <Route path="/financeiro" element={<Finance />} />
+            <Route path="/cobrancas" element={<Billing />} />
             <Route path="/sessoes" element={<Sessions />} />
             <Route path="/treinos" element={<Workouts />} />
             <Route path="/configuracoes" element={<Settings />} />

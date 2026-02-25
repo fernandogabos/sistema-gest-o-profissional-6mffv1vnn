@@ -58,14 +58,40 @@ export type Session = {
 }
 export type Payment = {
   id: string
-  tenantId: string
-  alunoId?: string
+  tenantId: string // maps to empresa_id
+  alunoId?: string // maps to cliente_id
+  contrato_id?: string
   descricao: string
-  valorPago: number
+  valorPago: number // maps to valor
+  gateway?: string
+  gateway_payment_id?: string
+  tipo?: string
   dataVencimento: string
   dataPagamento?: string
-  status: 'paid' | 'pending' | 'overdue'
+  taxa_plataforma?: number
+  valor_liquido?: number
+  data_criacao?: string
+  status: 'paid' | 'pending' | 'overdue' | 'failed' | 'canceled'
   recorrente: boolean
+}
+export type Subscription = {
+  id: string
+  tenantId: string // maps to empresa_id
+  alunoId: string // maps to cliente_id
+  gateway: 'stripe' | 'pagarme' | 'infinitepay'
+  gateway_subscription_id: string
+  valor: number
+  periodicidade: 'weekly' | 'biweekly' | 'monthly' | 'custom'
+  status: 'active' | 'canceled' | 'past_due'
+  proxima_cobranca: string
+}
+export type GatewayConfig = {
+  tenantId: string
+  gateway: 'stripe' | 'pagarme' | 'infinitepay'
+  isActive: boolean
+  publicKey?: string
+  splitMode: 'simple' | 'split'
+  splitPercentage?: number
 }
 export type Expense = {
   id: string
@@ -339,6 +365,44 @@ export const mockPayments: Payment[] = [
     dataPagamento: `${currentMonth}-05`,
     status: 'paid',
     recorrente: true,
+    gateway: 'stripe',
+    tipo: 'subscription',
+  },
+  {
+    id: 'pay-2',
+    tenantId: 't-1',
+    alunoId: 'stu-2',
+    descricao: 'Avaliação Física',
+    valorPago: 150,
+    dataVencimento: today,
+    status: 'pending',
+    recorrente: false,
+    gateway: 'pagarme',
+    tipo: 'one_off',
+  },
+]
+
+export const mockSubscriptions: Subscription[] = [
+  {
+    id: 'sub-1',
+    tenantId: 't-1',
+    alunoId: 'stu-1',
+    gateway: 'stripe',
+    gateway_subscription_id: 'sub_mock123',
+    valor: 350,
+    periodicidade: 'monthly',
+    status: 'active',
+    proxima_cobranca: `${new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10)}`,
+  },
+]
+
+export const mockGatewayConfigs: GatewayConfig[] = [
+  {
+    tenantId: 't-1',
+    gateway: 'stripe',
+    isActive: true,
+    splitMode: 'simple',
+    publicKey: 'pk_test_mock_123',
   },
 ]
 
