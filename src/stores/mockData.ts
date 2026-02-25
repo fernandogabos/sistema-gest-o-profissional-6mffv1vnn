@@ -9,7 +9,12 @@ export type User = {
   id: string
   authUserId: string
   tenantId?: string
-  role: 'master_admin' | 'professional_owner' | 'professional_admin' | 'student'
+  role:
+    | 'master_admin'
+    | 'professional_owner'
+    | 'professional_admin'
+    | 'student'
+    | 'instructor'
   fullName: string
   avatarUrl: string
 }
@@ -257,6 +262,7 @@ export type AcademyContent = {
   description: string
   category: string
   instructor: string
+  instructorId: string
   workload: number
   format: 'ead' | 'live' | 'in-person' | 'hybrid'
   isFree: boolean
@@ -274,6 +280,9 @@ export type AcademyContent = {
     title: string
     lessons: { id: string; title: string; type: string; duration: number }[]
   }[]
+  averageRating?: number
+  nps?: number
+  revenue?: number
 }
 
 export type AcademyEnrollment = {
@@ -296,6 +305,53 @@ export type AcademyCertificate = {
   workload: number
   issueDate: string
   validationCode: string
+}
+
+export type AcademyPath = {
+  id: string
+  tenantId: string
+  title: string
+  description: string
+  thumbnailUrl: string
+  courseIds: string[]
+  badgeId: string
+}
+
+export type GamificationProfile = {
+  userId: string
+  tenantId: string
+  points: number
+  level: number
+  badges: { id: string; name: string; iconUrl: string; earnedAt: string }[]
+}
+
+export type CourseEvaluation = {
+  id: string
+  contentId: string
+  userId: string
+  rating: number
+  feedback: string
+  createdAt: string
+}
+
+export type CommunityPost = {
+  id: string
+  tenantId: string
+  authorId: string
+  courseId?: string
+  title: string
+  content: string
+  createdAt: string
+  isResolved: boolean
+  likes: number
+  replies: {
+    id: string
+    authorId: string
+    content: string
+    createdAt: string
+    isBestAnswer: boolean
+    likes: number
+  }[]
 }
 
 const currentMonth = new Date().toISOString().slice(0, 7)
@@ -336,6 +392,15 @@ export const mockUsers: User[] = [
       'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=prof1',
   },
   {
+    id: 'u-instr1',
+    authUserId: 'auth-5',
+    fullName: 'Instrutor Silva',
+    role: 'instructor',
+    tenantId: 't-1',
+    avatarUrl:
+      'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=instr1',
+  },
+  {
     id: 'u-admin1',
     authUserId: 'auth-3',
     fullName: 'Secretária Ana',
@@ -351,6 +416,15 @@ export const mockUsers: User[] = [
     role: 'student',
     tenantId: 't-1',
     avatarUrl: 'https://img.usecurling.com/ppl/thumbnail?gender=male&seed=stu1',
+  },
+  {
+    id: 'u-stu2',
+    authUserId: 'auth-6',
+    fullName: 'Maria Aluno',
+    role: 'student',
+    tenantId: 't-1',
+    avatarUrl:
+      'https://img.usecurling.com/ppl/thumbnail?gender=female&seed=stu2',
   },
 ]
 
@@ -829,6 +903,7 @@ export const mockAcademyContents: AcademyContent[] = [
       'Entenda os princípios biomecânicos essenciais para otimização de hipertrofia e prevenção de lesões.',
     category: 'Técnico',
     instructor: 'Dr. Paulo Alves',
+    instructorId: 'u-instr1',
     workload: 40,
     format: 'ead',
     isFree: false,
@@ -839,6 +914,9 @@ export const mockAcademyContents: AcademyContent[] = [
       'https://img.usecurling.com/p/400/250?q=fitness%20class&color=blue',
     capacity: 0,
     enrolledCount: 150,
+    averageRating: 4.8,
+    nps: 85,
+    revenue: 44985,
     modules: [
       {
         id: 'm1',
@@ -871,6 +949,7 @@ export const mockAcademyContents: AcademyContent[] = [
       'Descubra as estratégias para atrair, vender e reter alunos de alto valor no digital e presencial.',
     category: 'Marketing',
     instructor: 'Carlos Sales',
+    instructorId: 'u-instr1',
     workload: 2,
     format: 'live',
     isFree: true,
@@ -893,6 +972,7 @@ export const mockAcademyContents: AcademyContent[] = [
       'Aprenda as técnicas fundamentais do Levantamento de Peso Olímpico na prática.',
     category: 'Prático',
     instructor: 'Coach Fernando',
+    instructorId: 'u-instr1',
     workload: 8,
     format: 'hybrid',
     isFree: false,
@@ -915,6 +995,7 @@ export const mockAcademyContents: AcademyContent[] = [
       'Aprenda a precificar suas aulas, gerenciar custos e aumentar seu lucro líquido mensal.',
     category: 'Gestão',
     instructor: 'Ana Silva',
+    instructorId: 'u-instr1',
     workload: 10,
     format: 'ead',
     isFree: true,
@@ -925,6 +1006,9 @@ export const mockAcademyContents: AcademyContent[] = [
       'https://img.usecurling.com/p/400/250?q=finance%20chart&color=green',
     capacity: 0,
     enrolledCount: 320,
+    averageRating: 4.5,
+    nps: 70,
+    revenue: 0,
     modules: [
       {
         id: 'm1',
@@ -956,7 +1040,125 @@ export const mockAcademyEnrollments: AcademyEnrollment[] = [
 
 export const mockAcademyCertificates: AcademyCertificate[] = []
 
-export const mockAuditLogs: AuditLog[] = []
+export const mockAcademyPaths: AcademyPath[] = [
+  {
+    id: 'path-1',
+    tenantId: 't-1',
+    title: 'Trilha Gestão para Personal',
+    description: 'Domine a parte financeira, captação e gestão do seu negócio.',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=office%20desk&color=cyan',
+    courseIds: ['ac-4', 'ac-2'],
+    badgeId: 'badge-gestao',
+  },
+  {
+    id: 'path-2',
+    tenantId: 't-1',
+    title: 'Trilha Especialista Técnico',
+    description:
+      'Aprofunde-se em biomecânica e metodologias avançadas de treinamento.',
+    thumbnailUrl:
+      'https://img.usecurling.com/p/400/250?q=gym%20training&color=purple',
+    courseIds: ['ac-1', 'ac-3'],
+    badgeId: 'badge-tecnico',
+  },
+]
+
+export const mockGamificationProfiles: GamificationProfile[] = [
+  {
+    userId: 'u-prof1',
+    tenantId: 't-1',
+    points: 1250,
+    level: 4,
+    badges: [
+      {
+        id: 'b-1',
+        name: 'Iniciante Curioso',
+        iconUrl: 'https://img.usecurling.com/i?q=star&shape=fill&color=yellow',
+        earnedAt: '2023-01-10T10:00:00Z',
+      },
+    ],
+  },
+  {
+    userId: 'u-stu1',
+    tenantId: 't-1',
+    points: 800,
+    level: 2,
+    badges: [],
+  },
+  {
+    userId: 'u-stu2',
+    tenantId: 't-1',
+    points: 2100,
+    level: 7,
+    badges: [
+      {
+        id: 'badge-gestao',
+        name: 'Gestor Expert',
+        iconUrl:
+          'https://img.usecurling.com/i?q=briefcase&shape=fill&color=blue',
+        earnedAt: '2023-05-10T10:00:00Z',
+      },
+    ],
+  },
+]
+
+export const mockCourseEvaluations: CourseEvaluation[] = [
+  {
+    id: 'eval-1',
+    contentId: 'ac-1',
+    userId: 'u-prof1',
+    rating: 5,
+    feedback: 'Excelente curso, mudou minha forma de prescrever.',
+    createdAt: '2023-10-01T10:00:00Z',
+  },
+  {
+    id: 'eval-2',
+    contentId: 'ac-4',
+    userId: 'u-stu2',
+    rating: 4,
+    feedback: 'Muito bom, mas poderia ter mais planilhas de exemplo.',
+    createdAt: '2023-10-05T10:00:00Z',
+  },
+]
+
+export const mockCommunityPosts: CommunityPost[] = [
+  {
+    id: 'post-1',
+    tenantId: 't-1',
+    authorId: 'u-prof1',
+    courseId: 'ac-1',
+    title: 'Dúvida sobre alavancas musculares',
+    content:
+      'No módulo 1, fiquei confuso sobre a vantagem mecânica do bíceps. Alguém pode explicar?',
+    createdAt: '2023-11-01T14:00:00Z',
+    isResolved: true,
+    likes: 5,
+    replies: [
+      {
+        id: 'reply-1',
+        authorId: 'u-instr1',
+        content: 'Claro! A vantagem mecânica ocorre porque o braço de força...',
+        createdAt: '2023-11-01T15:30:00Z',
+        isBestAnswer: true,
+        likes: 12,
+      },
+    ],
+  },
+  {
+    id: 'post-2',
+    tenantId: 't-1',
+    authorId: 'u-stu2',
+    title: 'Dicas para atrair alunos online?',
+    content: 'Pessoal, quais estratégias vocês usam no Instagram?',
+    createdAt: '2023-11-02T10:00:00Z',
+    isResolved: false,
+    likes: 8,
+    replies: [],
+  },
+]
+
+export const mockAuditLogsData: AuditLog[] = []
 
 export const themeOptions = {
   blue: { primary: '221.2 83.2% 53.3%', secondary: '210 40% 96.1%' },

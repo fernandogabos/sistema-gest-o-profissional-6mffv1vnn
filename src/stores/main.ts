@@ -30,6 +30,10 @@ import {
   AcademyContent,
   AcademyEnrollment,
   AcademyCertificate,
+  AcademyPath,
+  GamificationProfile,
+  CourseEvaluation,
+  CommunityPost,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -38,7 +42,7 @@ import {
   mockPayments,
   mockExpenses,
   mockSessions,
-  mockAuditLogs,
+  mockAuditLogsData,
   mockEvaluationTemplates,
   mockEvaluationResults,
   mockCommunicationTemplates,
@@ -53,6 +57,10 @@ import {
   mockAcademyContents,
   mockAcademyEnrollments,
   mockAcademyCertificates,
+  mockAcademyPaths,
+  mockGamificationProfiles,
+  mockCourseEvaluations,
+  mockCommunityPosts,
   themeOptions,
 } from './mockData'
 
@@ -81,6 +89,10 @@ type AppState = {
   academyContents: AcademyContent[]
   academyEnrollments: AcademyEnrollment[]
   academyCertificates: AcademyCertificate[]
+  academyPaths: AcademyPath[]
+  gamificationProfiles: GamificationProfile[]
+  courseEvaluations: CourseEvaluation[]
+  communityPosts: CommunityPost[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -152,6 +164,22 @@ type AppActions = {
   deleteEvent: (id: string) => void
   enrollAcademy: (contentId: string) => void
   completeAcademyCourse: (contentId: string) => void
+  evaluateCourse: (contentId: string, rating: number, feedback: string) => void
+  addCommunityPost: (
+    post: Omit<
+      CommunityPost,
+      | 'id'
+      | 'tenantId'
+      | 'authorId'
+      | 'createdAt'
+      | 'isResolved'
+      | 'likes'
+      | 'replies'
+    >,
+  ) => void
+  replyToPost: (postId: string, content: string) => void
+  markBestAnswer: (postId: string, replyId: string) => void
+  likePost: (postId: string) => void
 }
 
 type AppStore = AppState & AppActions
@@ -172,7 +200,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     gatewayConfigs: mockGatewayConfigs,
     expenses: mockExpenses,
     sessions: mockSessions,
-    auditLogs: mockAuditLogs,
+    auditLogs: mockAuditLogsData,
     evaluationTemplates: mockEvaluationTemplates,
     evaluationResults: mockEvaluationResults,
     communicationTemplates: mockCommunicationTemplates,
@@ -183,6 +211,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     academyContents: mockAcademyContents,
     academyEnrollments: mockAcademyEnrollments,
     academyCertificates: mockAcademyCertificates,
+    academyPaths: mockAcademyPaths,
+    gamificationProfiles: mockGamificationProfiles,
+    courseEvaluations: mockCourseEvaluations,
+    communityPosts: mockCommunityPosts,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -705,12 +737,141 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               .toUpperCase(),
           }
 
+          // Gamification update
+          let newProfiles = [...prev.gamificationProfiles]
+          let profileIndex = newProfiles.findIndex(
+            (p) => p.userId === prev.currentUser.id,
+          )
+
+          if (profileIndex === -1) {
+            newProfiles.push({
+              userId: prev.currentUser.id,
+              tenantId: prev.currentUser.tenantId!,
+              points: 0,
+              level: 1,
+              badges: [],
+            })
+            profileIndex = newProfiles.length - 1
+          }
+
+          let p = { ...newProfiles[profileIndex] }
+          p.points += 100 // 100 points for course completion
+          p.level = Math.floor(p.points / 500) + 1
+
+          // Check Path completion for badges
+          const completedPaths = prev.academyPaths.filter((path) => {
+            return path.courseIds.every((cid) => {
+              if (cid === contentId) return true // just completed
+              return newEnrollments.some(
+                (e) => e.contentId === cid && e.progress === 100,
+              )
+            })
+          })
+
+          completedPaths.forEach((path) => {
+            if (!p.badges.some((b) => b.id === path.badgeId)) {
+              p.badges.push({
+                id: path.badgeId,
+                name: path.title,
+                iconUrl:
+                  'https://img.usecurling.com/i?q=shield&shape=fill&color=azure',
+                earnedAt: new Date().toISOString(),
+              })
+              p.points += 500 // Bonus points for path
+            }
+          })
+
+          newProfiles[profileIndex] = p
+
           return {
             ...prev,
             academyEnrollments: newEnrollments,
             academyCertificates: [newCert, ...prev.academyCertificates],
+            gamificationProfiles: newProfiles,
           }
         }),
+
+      evaluateCourse: (contentId, rating, feedback) =>
+        setState((prev) => {
+          const newEval: CourseEvaluation = {
+            id: `eval-${Date.now()}`,
+            contentId,
+            userId: prev.currentUser.id,
+            rating,
+            feedback,
+            createdAt: new Date().toISOString(),
+          }
+          return {
+            ...prev,
+            courseEvaluations: [newEval, ...prev.courseEvaluations],
+          }
+        }),
+
+      addCommunityPost: (post) =>
+        setState((prev) => {
+          const newPost: CommunityPost = {
+            ...post,
+            id: `post-${Date.now()}`,
+            tenantId: prev.currentUser.tenantId!,
+            authorId: prev.currentUser.id,
+            createdAt: new Date().toISOString(),
+            isResolved: false,
+            likes: 0,
+            replies: [],
+          }
+          return { ...prev, communityPosts: [newPost, ...prev.communityPosts] }
+        }),
+
+      replyToPost: (postId, content) =>
+        setState((prev) => {
+          const newPosts = prev.communityPosts.map((p) => {
+            if (p.id === postId) {
+              return {
+                ...p,
+                replies: [
+                  ...p.replies,
+                  {
+                    id: `reply-${Date.now()}`,
+                    authorId: prev.currentUser.id,
+                    content,
+                    createdAt: new Date().toISOString(),
+                    isBestAnswer: false,
+                    likes: 0,
+                  },
+                ],
+              }
+            }
+            return p
+          })
+          return { ...prev, communityPosts: newPosts }
+        }),
+
+      markBestAnswer: (postId, replyId) =>
+        setState((prev) => {
+          const newPosts = prev.communityPosts.map((p) => {
+            if (p.id === postId && p.authorId === prev.currentUser.id) {
+              return {
+                ...p,
+                isResolved: true,
+                replies: p.replies.map((r) =>
+                  r.id === replyId
+                    ? { ...r, isBestAnswer: true }
+                    : { ...r, isBestAnswer: false },
+                ),
+              }
+            }
+            return p
+          })
+          return { ...prev, communityPosts: newPosts }
+        }),
+
+      likePost: (postId) =>
+        setState((prev) => ({
+          ...prev,
+          communityPosts: prev.communityPosts.map((p) =>
+            p.id === postId ? { ...p, likes: p.likes + 1 } : p,
+          ),
+        })),
     }),
     [],
   )
