@@ -7,7 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, Sparkles, BarChart2 } from 'lucide-react'
 import { AgendaView } from '@/pages/Agenda'
 
 interface Props {
@@ -16,6 +16,8 @@ interface Props {
   view: AgendaView
   setView: (v: AgendaView) => void
   onNew: () => void
+  onOpenOptimizer: () => void
+  onOpenProfitability: () => void
 }
 
 export function AgendaSidebar({
@@ -24,12 +26,33 @@ export function AgendaSidebar({
   view,
   setView,
   onNew,
+  onOpenOptimizer,
+  onOpenProfitability,
 }: Props) {
   return (
     <div className="w-72 shrink-0 border-r bg-muted/10 p-4 flex flex-col gap-6 overflow-y-auto hidden md:flex">
       <Button className="w-full shadow-sm font-semibold" onClick={onNew}>
         <Plus className="w-4 h-4 mr-2" /> Novo Agendamento
       </Button>
+
+      <div className="flex gap-2">
+        <Button
+          variant="secondary"
+          className="flex-1 shadow-sm text-xs px-2"
+          onClick={onOpenOptimizer}
+          title="Sugerir melhor horário"
+        >
+          <Sparkles className="w-4 h-4 mr-1 text-amber-500" /> Sugerir
+        </Button>
+        <Button
+          variant="outline"
+          className="flex-1 shadow-sm text-xs px-2"
+          onClick={onOpenProfitability}
+          title="Análise de Rentabilidade"
+        >
+          <BarChart2 className="w-4 h-4 mr-1 text-primary" /> Rentab.
+        </Button>
+      </div>
 
       <div className="bg-card rounded-md border p-2 shadow-sm flex justify-center">
         <Calendar

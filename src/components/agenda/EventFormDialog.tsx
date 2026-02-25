@@ -23,6 +23,8 @@ interface Props {
   onOpenChange: (open: boolean) => void
   eventId: string | null
   onSuccess: () => void
+  initialDate?: string
+  initialTime?: string
 }
 
 export function EventFormDialog({
@@ -30,6 +32,8 @@ export function EventFormDialog({
   onOpenChange,
   eventId,
   onSuccess,
+  initialDate,
+  initialTime,
 }: Props) {
   const { events, students, locations, addEvent, updateEvent, currentUser } =
     useAppStore()
@@ -52,11 +56,16 @@ export function EventFormDialog({
         const ev = events.find((e) => e.id === eventId)
         if (ev) setFormData(ev)
       } else {
-        setFormData(defaultForm)
+        const d = initialDate || new Date().toISOString().slice(0, 10)
+        const st = initialTime || '08:00'
+        const eh = (Number(st.split(':')[0]) + 1).toString().padStart(2, '0')
+        const et = `${eh}:${st.split(':')[1]}`
+
+        setFormData({ ...defaultForm, date: d, startTime: st, endTime: et })
         setRecurrenceWeeks(0)
       }
     }
-  }, [eventId, open, events])
+  }, [eventId, open, events, initialDate, initialTime])
 
   const tenantStudents = students.filter(
     (s) => s.tenantId === currentUser.tenantId,

@@ -4,6 +4,9 @@ import { AgendaGrid } from '@/components/agenda/AgendaGrid'
 import { AgendaDetails } from '@/components/agenda/AgendaDetails'
 import { AgendaStats } from '@/components/agenda/AgendaStats'
 import { EventFormDialog } from '@/components/agenda/EventFormDialog'
+import { AgendaOptimizer } from '@/components/agenda/AgendaOptimizer'
+import { AgendaProfitability } from '@/components/agenda/AgendaProfitability'
+import { format } from 'date-fns'
 
 export type AgendaView = 'day' | 'week' | 'workWeek' | 'month'
 
@@ -12,6 +15,11 @@ export default function Agenda() {
   const [view, setView] = useState<AgendaView>('week')
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const [showOptimizer, setShowOptimizer] = useState(false)
+  const [showProfitability, setShowProfitability] = useState(false)
+
+  const [initialFormDate, setInitialFormDate] = useState<string | undefined>()
+  const [initialFormTime, setInitialFormTime] = useState<string | undefined>()
 
   const handleEdit = () => {
     setIsFormOpen(true)
@@ -19,6 +27,8 @@ export default function Agenda() {
 
   const handleNew = () => {
     setSelectedEventId(null)
+    setInitialFormDate(format(selectedDate, 'yyyy-MM-dd'))
+    setInitialFormTime('08:00')
     setIsFormOpen(true)
   }
 
@@ -33,16 +43,22 @@ export default function Agenda() {
           view={view}
           setView={setView}
           onNew={handleNew}
+          onOpenOptimizer={() => setShowOptimizer(true)}
+          onOpenProfitability={() => setShowProfitability(true)}
         />
 
-        <AgendaGrid
-          selectedDate={selectedDate}
-          view={view}
-          selectedEventId={selectedEventId}
-          setSelectedEventId={setSelectedEventId}
-        />
+        {showProfitability ? (
+          <AgendaProfitability onClose={() => setShowProfitability(false)} />
+        ) : (
+          <AgendaGrid
+            selectedDate={selectedDate}
+            view={view}
+            selectedEventId={selectedEventId}
+            setSelectedEventId={setSelectedEventId}
+          />
+        )}
 
-        {selectedEventId && (
+        {selectedEventId && !showProfitability && (
           <AgendaDetails
             eventId={selectedEventId}
             onClose={() => setSelectedEventId(null)}
@@ -56,6 +72,20 @@ export default function Agenda() {
         onOpenChange={setIsFormOpen}
         eventId={selectedEventId}
         onSuccess={() => setIsFormOpen(false)}
+        initialDate={initialFormDate}
+        initialTime={initialFormTime}
+      />
+
+      <AgendaOptimizer
+        open={showOptimizer}
+        onOpenChange={setShowOptimizer}
+        selectedDate={selectedDate}
+        onSelectSlot={(slot) => {
+          setInitialFormDate(slot.date)
+          setInitialFormTime(slot.startTime)
+          setSelectedEventId(null)
+          setIsFormOpen(true)
+        }}
       />
     </div>
   )
