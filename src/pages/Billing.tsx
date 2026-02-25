@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Card,
   CardContent,
@@ -52,8 +52,8 @@ import {
   Plus,
   CreditCard,
   Activity,
-  Search,
   ShieldAlert,
+  Loader2,
 } from 'lucide-react'
 import { Payment } from '@/stores/mockData'
 
@@ -76,14 +76,14 @@ const StudentCheckoutMock = ({
       <div className="space-y-4">
         <div className="flex justify-between border-b pb-2">
           <span className="font-medium text-muted-foreground">Descrição</span>
-          <span className="font-medium">{payment.descricao}</span>
+          <span className="font-medium">{payment?.descricao || '-'}</span>
         </div>
         <div className="flex justify-between border-b pb-2">
           <span className="font-medium text-muted-foreground">
             Valor a Pagar
           </span>
           <span className="font-bold text-xl text-primary">
-            {formatBRL(payment.valorPago)}
+            {payment?.valorPago ? formatBRL(payment.valorPago) : 'R$ 0,00'}
           </span>
         </div>
         <div className="pt-2 space-y-3">
@@ -125,21 +125,30 @@ export default function Billing() {
   } = useAppStore()
   const { toast } = useToast()
 
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    // Simula carregamento para evitar renderização nula e garantir que os dados estejam prontos
+    const timer = setTimeout(() => setIsLoading(false), 500)
+    return () => clearTimeout(timer)
+  }, [])
+
   const tenantPayments = useMemo(
-    () => payments.filter((p) => p.tenantId === currentUser.tenantId),
+    () => payments?.filter((p) => p.tenantId === currentUser?.tenantId) || [],
     [payments, currentUser],
   )
   const tenantSubscriptions = useMemo(
-    () => subscriptions.filter((s) => s.tenantId === currentUser.tenantId),
+    () =>
+      subscriptions?.filter((s) => s.tenantId === currentUser?.tenantId) || [],
     [subscriptions, currentUser],
   )
   const tenantStudents = useMemo(
-    () => students.filter((s) => s.tenantId === currentUser.tenantId),
+    () => students?.filter((s) => s.tenantId === currentUser?.tenantId) || [],
     [students, currentUser],
   )
   const config = useMemo(
     () =>
-      gatewayConfigs.find((c) => c.tenantId === currentUser.tenantId) || {
+      gatewayConfigs?.find((c) => c.tenantId === currentUser?.tenantId) || {
         gateway: 'stripe',
         isActive: false,
         splitMode: 'simple',
@@ -170,13 +179,13 @@ export default function Billing() {
   // Dashboard Metrics
   const totalReceived = tenantPayments
     .filter((p) => p.status === 'paid')
-    .reduce((acc, p) => acc + p.valorPago, 0)
+    .reduce((acc, p) => acc + (p.valorPago || 0), 0)
   const totalPending = tenantPayments
     .filter((p) => p.status === 'pending')
-    .reduce((acc, p) => acc + p.valorPago, 0)
+    .reduce((acc, p) => acc + (p.valorPago || 0), 0)
   const mrr = tenantSubscriptions
     .filter((s) => s.status === 'active')
-    .reduce((acc, s) => acc + s.valor, 0)
+    .reduce((acc, s) => acc + (s.valor || 0), 0)
   const overdueCount = tenantPayments.filter(
     (p) => p.status === 'overdue',
   ).length
@@ -188,45 +197,91 @@ export default function Billing() {
   const failureRate = totalCount ? (failureCount / totalCount) * 100 : 0
 
   const handleSavePayment = () => {
-    if (!payData.descricao || !payData.valorPago || !payData.alunoId) return
-    addPayment({
-      alunoId: payData.alunoId,
-      descricao: payData.descricao,
-      valorPago: Number(payData.valorPago),
-      dataVencimento: payData.dataVencimento,
-      status: 'pending',
-      recorrente: false,
-      gateway: payData.gateway,
-      tipo: 'one_off',
-    })
-    setPayFormOpen(false)
-    toast({ title: 'Cobrança gerada! Link de pagamento disponível.' })
+    try {
+      if (!payData.descricao || !payData.valorPago || !payData.alunoId) {
+        toast({
+          title: 'Aviso',
+          description:
+            'Preencha todos os campos obrigatórios para gerar a cobrança.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      addPayment({
+        alunoId: payData.alunoId,
+        descricao: payData.descricao,
+        valorPago: Number(payData.valorPago),
+        dataVencimento: payData.dataVencimento,
+        status: 'pending',
+        recorrente: false,
+        gateway: payData.gateway,
+        tipo: 'one_off',
+      })
+      setPayFormOpen(false)
+      toast({ title: 'Cobrança gerada! Link de pagamento disponível.' })
+    } catch (error) {
+      toast({
+        title: 'Erro no Gateway',
+        description:
+          'Falha de comunicação ao tentar processar a cobrança. Tente novamente.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleSaveSubscription = () => {
-    if (!subData.valor || !subData.alunoId) return
-    addSubscription({
-      alunoId: subData.alunoId,
-      valor: Number(subData.valor),
-      periodicidade: subData.periodicidade,
-      gateway: config.gateway as any,
-      gateway_subscription_id: `sub_${Date.now()}`,
-      status: 'active',
-      proxima_cobranca: new Date(new Date().setMonth(new Date().getMonth() + 1))
-        .toISOString()
-        .slice(0, 10),
-    })
-    setSubFormOpen(false)
-    toast({ title: 'Assinatura criada com sucesso via Gateway.' })
+    try {
+      if (!subData.valor || !subData.alunoId) {
+        toast({
+          title: 'Aviso',
+          description:
+            'Preencha todos os campos obrigatórios para criar a assinatura.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      addSubscription({
+        alunoId: subData.alunoId,
+        valor: Number(subData.valor),
+        periodicidade: subData.periodicidade,
+        gateway: config.gateway as any,
+        gateway_subscription_id: `sub_${Date.now()}`,
+        status: 'active',
+        proxima_cobranca: new Date(
+          new Date().setMonth(new Date().getMonth() + 1),
+        )
+          .toISOString()
+          .slice(0, 10),
+      })
+      setSubFormOpen(false)
+      toast({ title: 'Assinatura criada com sucesso via Gateway.' })
+    } catch (error) {
+      toast({
+        title: 'Erro no Gateway',
+        description:
+          'Não foi possível registrar a assinatura recorrente no momento.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleDelinquencyCheck = () => {
-    runDelinquencyCheck(5)
-    toast({
-      title: 'Varredura Concluída',
-      description:
-        'Inadimplentes identificados e agendamentos futuros bloqueados.',
-    })
+    try {
+      runDelinquencyCheck(5)
+      toast({
+        title: 'Varredura Concluída',
+        description:
+          'Inadimplentes identificados e agendamentos futuros bloqueados.',
+      })
+    } catch (error) {
+      toast({
+        title: 'Erro na varredura',
+        description: 'Não foi possível completar a análise de inadimplência.',
+        variant: 'destructive',
+      })
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -244,6 +299,17 @@ export default function Billing() {
       default:
         return <Badge variant="outline">Pendente</Badge>
     }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] flex-col gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">
+          Carregando dados financeiros...
+        </p>
+      </div>
+    )
   }
 
   return (
@@ -268,7 +334,7 @@ export default function Billing() {
       </div>
 
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="mb-6">
+        <TabsList className="mb-6 flex flex-wrap h-auto justify-start">
           <TabsTrigger value="dashboard">Dashboard Financeiro</TabsTrigger>
           <TabsTrigger value="charges">Cobranças Avulsas</TabsTrigger>
           <TabsTrigger value="subscriptions">
@@ -299,7 +365,7 @@ export default function Billing() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground flex items-center justify-between">
                   MRR (Receita Recorrente){' '}
-                  <TrendingUp className="w-4 h-4 text-emerald-500" />
+                  <Activity className="w-4 h-4 text-emerald-500" />
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -373,6 +439,11 @@ export default function Billing() {
                         <SelectValue placeholder="Selecione o aluno" />
                       </SelectTrigger>
                       <SelectContent>
+                        {tenantStudents.length === 0 && (
+                          <SelectItem value="none" disabled>
+                            Nenhum aluno cadastrado
+                          </SelectItem>
+                        )}
                         {tenantStudents.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.nome}
@@ -388,6 +459,7 @@ export default function Billing() {
                       onChange={(e) =>
                         setPayData((d) => ({ ...d, descricao: e.target.value }))
                       }
+                      placeholder="Ex: Avaliação Funcional"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -427,7 +499,7 @@ export default function Billing() {
           </div>
 
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -441,57 +513,104 @@ export default function Billing() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantPayments.map((p) => {
-                    const stu = tenantStudents.find((s) => s.id === p.alunoId)
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell>{formatDate(p.dataVencimento)}</TableCell>
-                        <TableCell className="font-medium">
-                          {p.descricao}
-                        </TableCell>
-                        <TableCell>{stu?.nome || '-'}</TableCell>
-                        <TableCell className="capitalize text-muted-foreground">
-                          {p.gateway || 'Manual'}
-                        </TableCell>
-                        <TableCell className="text-right font-bold">
-                          {formatBRL(p.valorPago)}
-                        </TableCell>
-                        <TableCell>{getStatusBadge(p.status)}</TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem
-                                onClick={() => {
-                                  setCheckoutPayment(p)
-                                  setCheckoutOpen(true)
-                                }}
-                              >
-                                <LinkIcon className="w-4 h-4 mr-2 text-primary" />{' '}
-                                Link do Aluno (Checkout)
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => simulateWebhook(p.id, 'paid')}
-                              >
-                                <RefreshCw className="w-4 h-4 mr-2 text-emerald-500" />{' '}
-                                Webhook: Aprovado
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => simulateWebhook(p.id, 'failed')}
-                              >
-                                <AlertTriangle className="w-4 h-4 mr-2 text-rose-500" />{' '}
-                                Webhook: Recusado
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                  {tenantPayments.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={7}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Nenhuma cobrança registrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    tenantPayments.map((p) => {
+                      const stu = tenantStudents.find((s) => s.id === p.alunoId)
+                      return (
+                        <TableRow key={p.id}>
+                          <TableCell>
+                            {p.dataVencimento
+                              ? formatDate(p.dataVencimento)
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="font-medium">
+                            {p.descricao || '-'}
+                          </TableCell>
+                          <TableCell>{stu?.nome || '-'}</TableCell>
+                          <TableCell className="capitalize text-muted-foreground">
+                            {p.gateway || 'Manual'}
+                          </TableCell>
+                          <TableCell className="text-right font-bold">
+                            {p.valorPago != null ? formatBRL(p.valorPago) : '-'}
+                          </TableCell>
+                          <TableCell>{getStatusBadge(p.status)}</TableCell>
+                          <TableCell>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setCheckoutPayment(p)
+                                    setCheckoutOpen(true)
+                                  }}
+                                >
+                                  <LinkIcon className="w-4 h-4 mr-2 text-primary" />{' '}
+                                  Link do Aluno (Checkout)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    try {
+                                      simulateWebhook(p.id, 'paid')
+                                      toast({
+                                        title: 'Sucesso',
+                                        description:
+                                          'Cobrança marcada como aprovada.',
+                                      })
+                                    } catch (e) {
+                                      toast({
+                                        title: 'Erro',
+                                        description:
+                                          'Não foi possível atualizar o status.',
+                                        variant: 'destructive',
+                                      })
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle2 className="w-4 h-4 mr-2 text-emerald-500" />{' '}
+                                  Webhook: Aprovado
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    try {
+                                      simulateWebhook(p.id, 'failed')
+                                      toast({
+                                        title: 'Aviso',
+                                        description:
+                                          'Cobrança marcada como recusada.',
+                                      })
+                                    } catch (e) {
+                                      toast({
+                                        title: 'Erro',
+                                        description:
+                                          'Não foi possível atualizar o status.',
+                                        variant: 'destructive',
+                                      })
+                                    }
+                                  }}
+                                >
+                                  <AlertTriangle className="w-4 h-4 mr-2 text-rose-500" />{' '}
+                                  Webhook: Recusado
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -523,6 +642,11 @@ export default function Billing() {
                         <SelectValue placeholder="Selecione o aluno" />
                       </SelectTrigger>
                       <SelectContent>
+                        {tenantStudents.length === 0 && (
+                          <SelectItem value="none" disabled>
+                            Nenhum aluno cadastrado
+                          </SelectItem>
+                        )}
                         {tenantStudents.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             {s.nome}
@@ -533,7 +657,7 @@ export default function Billing() {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>Valor Recorrente</Label>
+                      <Label>Valor Recorrente (R$)</Label>
                       <Input
                         type="number"
                         value={subData.valor}
@@ -573,7 +697,7 @@ export default function Billing() {
           </div>
 
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -586,35 +710,54 @@ export default function Billing() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenantSubscriptions.map((s) => {
-                    const stu = tenantStudents.find((st) => st.id === s.alunoId)
-                    return (
-                      <TableRow key={s.id}>
-                        <TableCell className="font-medium">
-                          {stu?.nome || '-'}
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {s.periodicidade}
-                        </TableCell>
-                        <TableCell>{formatDate(s.proxima_cobranca)}</TableCell>
-                        <TableCell className="text-xs text-muted-foreground font-mono">
-                          {s.gateway_subscription_id}
-                        </TableCell>
-                        <TableCell className="text-right font-bold text-primary">
-                          {formatBRL(s.valor)}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              s.status === 'active' ? 'default' : 'destructive'
-                            }
-                          >
-                            {s.status === 'active' ? 'Ativa' : 'Falha'}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
+                  {tenantSubscriptions.length === 0 ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={6}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        Nenhuma assinatura recorrente encontrada.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    tenantSubscriptions.map((s) => {
+                      const stu = tenantStudents.find(
+                        (st) => st.id === s.alunoId,
+                      )
+                      return (
+                        <TableRow key={s.id}>
+                          <TableCell className="font-medium">
+                            {stu?.nome || '-'}
+                          </TableCell>
+                          <TableCell className="capitalize">
+                            {s.periodicidade || '-'}
+                          </TableCell>
+                          <TableCell>
+                            {s.proxima_cobranca
+                              ? formatDate(s.proxima_cobranca)
+                              : '-'}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground font-mono">
+                            {s.gateway_subscription_id || '-'}
+                          </TableCell>
+                          <TableCell className="text-right font-bold text-primary">
+                            {s.valor != null ? formatBRL(s.valor) : '-'}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={
+                                s.status === 'active'
+                                  ? 'default'
+                                  : 'destructive'
+                              }
+                            >
+                              {s.status === 'active' ? 'Ativa' : 'Falha'}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -666,7 +809,7 @@ export default function Billing() {
                   <Activity className="w-5 h-5 text-primary" /> Configuração de
                   Split (Repasse)
                 </h3>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="font-medium">Modo Split Automático</p>
                     <p className="text-sm text-muted-foreground">
@@ -700,9 +843,17 @@ export default function Billing() {
             <StudentCheckoutMock
               payment={checkoutPayment}
               onPay={() => {
-                simulateWebhook(checkoutPayment.id, 'paid')
-                toast({ title: 'Simulação: Pagamento Aprovado!' })
-                setCheckoutOpen(false)
+                try {
+                  simulateWebhook(checkoutPayment.id, 'paid')
+                  toast({ title: 'Simulação: Pagamento Aprovado!' })
+                  setCheckoutOpen(false)
+                } catch (error) {
+                  toast({
+                    title: 'Erro',
+                    description: 'Não foi possível aprovar o pagamento',
+                    variant: 'destructive',
+                  })
+                }
               }}
             />
           )}
