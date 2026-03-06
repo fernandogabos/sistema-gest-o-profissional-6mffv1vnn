@@ -1589,6 +1589,317 @@ export const mockStudentTermAcceptances: StudentTermAcceptance[] = [
   },
 ]
 
+const generateHistoricalData = () => {
+  const nowMock = new Date()
+  const studentNames = [
+    'Marcos Silva',
+    'Juliana Costa',
+    'Rafael Souza',
+    'Fernanda Lima',
+    'Lucas Pereira',
+    'Camila Alves',
+    'Bruno Gomes',
+    'Amanda Rocha',
+  ]
+
+  studentNames.forEach((nome, i) => {
+    mockStudents.push({
+      id: `stu-${i + 3}`,
+      tenantId: 't-1',
+      nome,
+      email: `${nome.split(' ')[0].toLowerCase()}@email.com`,
+      telefone: `119${Math.floor(10000000 + Math.random() * 90000000)}`,
+      planId: i % 2 === 0 ? 'p-1' : 'p-2',
+      status: 'active',
+      avatarUrl: `https://img.usecurling.com/ppl/thumbnail?gender=${i % 2 === 0 ? 'male' : 'female'}&seed=${i + 3}`,
+      whatsappConsent: true,
+      bloquear_inadimplente: true,
+      dias_tolerancia: 5,
+      exigir_pagamento_antecipado: false,
+    })
+  })
+
+  const expenseCategories = [
+    'Manutenção',
+    'Software',
+    'Marketing',
+    'Aluguel',
+    'Equipamentos',
+  ]
+  const commStatuses: ('sent' | 'delivered' | 'read' | 'failed')[] = [
+    'delivered',
+    'read',
+    'read',
+    'failed',
+  ]
+  const commTemplates = ['tpl-comm-1', 'tpl-comm-2', 'tpl-comm-3']
+
+  mockStudents.forEach((student) => {
+    if (student.id !== 'stu-1') {
+      const dSub = new Date()
+      dSub.setMonth(nowMock.getMonth() + 1)
+      dSub.setDate(5)
+      mockSubscriptions.push({
+        id: `sub-hist-${student.id}`,
+        tenantId: 't-1',
+        alunoId: student.id,
+        gateway: 'stripe',
+        gateway_subscription_id: `sub_mock_${student.id}`,
+        valor: student.planId === 'p-1' ? 350 : 900,
+        periodicidade: 'monthly',
+        status: 'active',
+        proxima_cobranca: dSub.toISOString().slice(0, 10),
+      })
+    }
+
+    for (let m = 1; m <= 6; m++) {
+      const d = new Date()
+      d.setMonth(nowMock.getMonth() - m)
+
+      d.setDate(5)
+      mockPayments.push({
+        id: `pay-hist-${student.id}-${m}`,
+        tenantId: 't-1',
+        alunoId: student.id,
+        descricao: `Mensalidade ${d.toLocaleString('pt-BR', { month: 'long' })}`,
+        valorPago: student.planId === 'p-1' ? 350 : 900,
+        valor_recebido: student.planId === 'p-1' ? 350 : 900,
+        saldo_restante: 0,
+        dataVencimento: d.toISOString().slice(0, 10),
+        dataPagamento: d.toISOString().slice(0, 10),
+        status: 'paid',
+        recorrente: true,
+        gateway: 'stripe',
+        tipo: 'subscription',
+        online: true,
+        forma_pagamento_id: 'pm-1',
+      })
+
+      for (let s = 0; s < 4; s++) {
+        d.setDate(Math.floor(Math.random() * 28) + 1)
+        mockSessions.push({
+          id: `ses-hist-${student.id}-${m}-${s}`,
+          tenantId: 't-1',
+          alunoId: student.id,
+          localId: Math.random() > 0.5 ? 'loc-1' : 'loc-2',
+          data: d.toISOString().slice(0, 10),
+          valor_bruto: 120,
+          repasse_calculado: 36,
+          lucro_liquido: 84,
+          status: 'realized',
+        })
+      }
+
+      for (let c = 0; c < 2; c++) {
+        d.setDate(Math.floor(Math.random() * 28) + 1)
+        mockCommunicationLogs.push({
+          id: `log-hist-${student.id}-${m}-${c}`,
+          tenantId: 't-1',
+          targetId: student.id,
+          templateId:
+            commTemplates[Math.floor(Math.random() * commTemplates.length)],
+          content: 'Mensagem automatizada de sistema.',
+          status: commStatuses[Math.floor(Math.random() * commStatuses.length)],
+          channel: 'whatsapp',
+          timestamp: d.toISOString(),
+        })
+      }
+    }
+
+    const dFuture = new Date()
+    dFuture.setMonth(nowMock.getMonth() + 1)
+
+    dFuture.setDate(5)
+    mockPayments.push({
+      id: `pay-fut-${student.id}`,
+      tenantId: 't-1',
+      alunoId: student.id,
+      descricao: `Mensalidade ${dFuture.toLocaleString('pt-BR', { month: 'long' })}`,
+      valorPago: student.planId === 'p-1' ? 350 : 900,
+      saldo_restante: student.planId === 'p-1' ? 350 : 900,
+      dataVencimento: dFuture.toISOString().slice(0, 10),
+      status: 'pending',
+      recorrente: true,
+      gateway: 'stripe',
+      tipo: 'subscription',
+      online: true,
+      forma_pagamento_id: 'pm-1',
+    })
+
+    dFuture.setDate(Math.floor(Math.random() * 28) + 1)
+    mockCommunicationLogs.push({
+      id: `log-fut-${student.id}`,
+      tenantId: 't-1',
+      targetId: student.id,
+      templateId: 'tpl-comm-2',
+      content: 'Lembrete de vencimento programado.',
+      status: 'sent',
+      channel: 'whatsapp',
+      timestamp: dFuture.toISOString(),
+    })
+
+    for (let m = 1; m <= 6; m += 2) {
+      const d = new Date()
+      d.setMonth(nowMock.getMonth() - m)
+      d.setDate(Math.floor(Math.random() * 28) + 1)
+      const score = Math.floor(Math.random() * 40) + 50
+      mockEvaluationResults.push({
+        id: `res-hist-${student.id}-${m}`,
+        tenantId: 't-1',
+        templateId: 'tpl-1',
+        templateName: 'Avaliação Física Geral',
+        targetId: student.id,
+        date: d.toISOString().slice(0, 10),
+        totalScore: score,
+        classification: score < 66 ? 'Low' : score < 86 ? 'Medium' : 'High',
+        scores: [
+          {
+            criterionId: 'crit-1',
+            name: 'Força Funcional',
+            weight: 3,
+            value: score + (Math.random() * 10 - 5),
+          },
+          {
+            criterionId: 'crit-2',
+            name: 'Resistência Aeróbica',
+            weight: 3,
+            value: score + (Math.random() * 10 - 5),
+          },
+          {
+            criterionId: 'crit-3',
+            name: 'Flexibilidade',
+            weight: 2,
+            value: score + (Math.random() * 10 - 5),
+          },
+          {
+            criterionId: 'crit-4',
+            name: 'Composição Corporal',
+            weight: 2,
+            value: score + (Math.random() * 10 - 5),
+          },
+        ],
+      })
+    }
+
+    dFuture.setDate(Math.floor(Math.random() * 28) + 1)
+    mockEvaluationResults.push({
+      id: `res-fut-${student.id}`,
+      tenantId: 't-1',
+      templateId: 'tpl-1',
+      templateName: 'Avaliação Física Geral',
+      targetId: student.id,
+      date: dFuture.toISOString().slice(0, 10),
+      totalScore: 0,
+      classification: 'Critical',
+      scores: [
+        { criterionId: 'crit-1', name: 'Força Funcional', weight: 3, value: 0 },
+        {
+          criterionId: 'crit-2',
+          name: 'Resistência Aeróbica',
+          weight: 3,
+          value: 0,
+        },
+        { criterionId: 'crit-3', name: 'Flexibilidade', weight: 2, value: 0 },
+        {
+          criterionId: 'crit-4',
+          name: 'Composição Corporal',
+          weight: 2,
+          value: 0,
+        },
+      ],
+    })
+
+    const dHist = new Date()
+    dHist.setMonth(nowMock.getMonth() - Math.floor(Math.random() * 5 + 1))
+    dHist.setDate(Math.floor(Math.random() * 28) + 1)
+    mockSurveyResponses.push({
+      id: `sr-hist-${student.id}`,
+      tenantId: 't-1',
+      surveyId: Math.random() > 0.5 ? 'surv-1' : 'surv-2',
+      studentId: student.id,
+      answers: [
+        { questionId: 'q1', value: Math.floor(Math.random() * 3) + 3 },
+        { questionId: 'q2', value: 'Ótimo trabalho.' },
+      ],
+      createdAt: dHist.toISOString(),
+    })
+
+    mockStudentTermAcceptances.push({
+      id: `sta-hist-${student.id}`,
+      tenantId: 't-1',
+      studentId: student.id,
+      termId: 'term-1',
+      acceptedAt: dHist.toISOString(),
+    })
+
+    if (Math.random() > 0.3) {
+      const d = new Date()
+      d.setMonth(nowMock.getMonth() - Math.floor(Math.random() * 5 + 1))
+      mockAcademyEnrollments.push({
+        id: `enr-hist-${student.id}`,
+        tenantId: 't-1',
+        userId: student.id,
+        contentId: 'ac-1',
+        progress: 100,
+        status: 'completed',
+        enrolledAt: d.toISOString(),
+      })
+
+      mockCourseEvaluations.push({
+        id: `eval-hist-${student.id}`,
+        contentId: 'ac-1',
+        userId: student.id,
+        rating: Math.floor(Math.random() * 2) + 4,
+        feedback: 'Conteúdo excelente, me ajudou muito!',
+        createdAt: new Date(
+          d.getTime() + 7 * 24 * 60 * 60 * 1000,
+        ).toISOString(),
+      })
+    }
+  })
+
+  for (let m = 1; m <= 6; m++) {
+    const d = new Date()
+    d.setMonth(nowMock.getMonth() - m)
+    for (let e = 0; e < 3; e++) {
+      d.setDate(Math.floor(Math.random() * 28) + 1)
+      mockExpenses.push({
+        id: `exp-hist-${m}-${e}`,
+        tenantId: 't-1',
+        descricao: `Despesa ${expenseCategories[Math.floor(Math.random() * expenseCategories.length)]}`,
+        categoria:
+          expenseCategories[
+            Math.floor(Math.random() * expenseCategories.length)
+          ],
+        tipo: 'variable',
+        valor: Math.floor(Math.random() * 800) + 100,
+        dataVencimento: d.toISOString().slice(0, 10),
+        dataPagamento: d.toISOString().slice(0, 10),
+        status: 'paid',
+      })
+    }
+  }
+
+  for (let e = 0; e < 3; e++) {
+    const dF = new Date()
+    dF.setMonth(nowMock.getMonth() + 1)
+    dF.setDate(Math.floor(Math.random() * 28) + 1)
+    mockExpenses.push({
+      id: `exp-fut-${e}`,
+      tenantId: 't-1',
+      descricao: `Despesa Programada`,
+      categoria:
+        expenseCategories[Math.floor(Math.random() * expenseCategories.length)],
+      tipo: 'variable',
+      valor: Math.floor(Math.random() * 800) + 100,
+      dataVencimento: dF.toISOString().slice(0, 10),
+      status: 'pending',
+    })
+  }
+}
+
+generateHistoricalData()
+
 export const themeOptions = {
   blue: { primary: '221.2 83.2% 53.3%', secondary: '210 40% 96.1%' },
   emerald: { primary: '142.1 76.2% 36.3%', secondary: '149.3 80.4% 90%' },
