@@ -397,6 +397,34 @@ export type DirectMessage = {
   read: boolean
 }
 
+export type SurveyQuestion = {
+  id: string
+  type: 'text' | 'rating' | 'nps' | 'choice'
+  text: string
+  options?: string[]
+  scale?: number
+}
+
+export type Survey = {
+  id: string
+  tenantId: string
+  title: string
+  description: string
+  type: 'satisfaction' | 'nps' | 'feedback'
+  status: 'active' | 'inactive'
+  questions: SurveyQuestion[]
+  createdAt: string
+}
+
+export type SurveyResponse = {
+  id: string
+  tenantId: string
+  surveyId: string
+  studentId: string
+  answers: { questionId: string; value: string | number }[]
+  createdAt: string
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -1459,6 +1487,59 @@ export const mockDirectMessages: DirectMessage[] = [
 ]
 
 export const mockAuditLogsData: AuditLog[] = []
+
+export const mockSurveys: Survey[] = [
+  {
+    id: 'surv-1',
+    tenantId: 't-1',
+    title: 'Satisfação Geral - 2024',
+    description: 'Como está sendo sua experiência até agora?',
+    type: 'satisfaction',
+    status: 'active',
+    questions: [
+      {
+        id: 'q1',
+        type: 'rating',
+        text: 'Atendimento do profissional',
+        scale: 5,
+      },
+      { id: 'q2', type: 'text', text: 'Sugestões de melhoria?' },
+    ],
+    createdAt: '2023-10-01T10:00:00Z',
+  },
+  {
+    id: 'surv-2',
+    tenantId: 't-1',
+    title: 'NPS Trimestral',
+    description: 'Queremos saber se você nos recomendaria.',
+    type: 'nps',
+    status: 'active',
+    questions: [
+      {
+        id: 'q1',
+        type: 'nps',
+        text: 'De 0 a 10, o quanto recomendaria nossos serviços?',
+        scale: 10,
+      },
+      { id: 'q2', type: 'text', text: 'Qual o principal motivo da sua nota?' },
+    ],
+    createdAt: '2023-11-01T10:00:00Z',
+  },
+]
+
+export const mockSurveyResponses: SurveyResponse[] = [
+  {
+    id: 'sr-1',
+    tenantId: 't-1',
+    surveyId: 'surv-2',
+    studentId: 'stu-1',
+    answers: [
+      { questionId: 'q1', value: 9 },
+      { questionId: 'q2', value: 'Ótimos resultados nos treinos.' },
+    ],
+    createdAt: '2023-11-05T10:00:00Z',
+  },
+]
 
 export const themeOptions = {
   blue: { primary: '221.2 83.2% 53.3%', secondary: '210 40% 96.1%' },

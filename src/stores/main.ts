@@ -35,9 +35,10 @@ import {
   CourseEvaluation,
   CommunityPost,
   SocialPost,
-  SocialComment,
   Story,
   DirectMessage,
+  Survey,
+  SurveyResponse,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -68,6 +69,8 @@ import {
   mockSocialPosts,
   mockStories,
   mockDirectMessages,
+  mockSurveys,
+  mockSurveyResponses,
   themeOptions,
 } from './mockData'
 
@@ -103,6 +106,8 @@ type AppState = {
   socialPosts: SocialPost[]
   stories: Story[]
   directMessages: DirectMessage[]
+  surveys: Survey[]
+  surveyResponses: SurveyResponse[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -201,6 +206,12 @@ type AppActions = {
   markMessagesAsRead: (senderId: string) => void
   addStory: (imageUrl: string) => void
   viewStory: (storyId: string) => void
+  addSurvey: (survey: Omit<Survey, 'id' | 'tenantId' | 'createdAt'>) => void
+  updateSurvey: (id: string, updates: Partial<Survey>) => void
+  deleteSurvey: (id: string) => void
+  submitSurveyResponse: (
+    response: Omit<SurveyResponse, 'id' | 'tenantId' | 'createdAt'>,
+  ) => void
 }
 
 type AppStore = AppState & AppActions
@@ -239,6 +250,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     socialPosts: mockSocialPosts,
     stories: mockStories,
     directMessages: mockDirectMessages,
+    surveys: mockSurveys,
+    surveyResponses: mockSurveyResponses,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -1050,6 +1063,48 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           stories: prev.stories.map((s) =>
             s.id === storyId ? { ...s, viewed: true } : s,
           ),
+        })),
+
+      addSurvey: (survey) =>
+        setState((prev) => ({
+          ...prev,
+          surveys: [
+            ...prev.surveys,
+            {
+              ...survey,
+              id: `surv-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        })),
+
+      updateSurvey: (id, updates) =>
+        setState((prev) => ({
+          ...prev,
+          surveys: prev.surveys.map((s) =>
+            s.id === id ? { ...s, ...updates } : s,
+          ),
+        })),
+
+      deleteSurvey: (id) =>
+        setState((prev) => ({
+          ...prev,
+          surveys: prev.surveys.filter((s) => s.id !== id),
+        })),
+
+      submitSurveyResponse: (response) =>
+        setState((prev) => ({
+          ...prev,
+          surveyResponses: [
+            ...prev.surveyResponses,
+            {
+              ...response,
+              id: `sr-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              createdAt: new Date().toISOString(),
+            },
+          ],
         })),
     }),
     [],

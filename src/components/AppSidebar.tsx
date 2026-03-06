@@ -15,6 +15,7 @@ import {
   CreditCard,
   GraduationCap,
   Globe,
+  FileQuestion,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -52,6 +53,7 @@ export function AppSidebar() {
     { title: 'Financeiro', url: '/financeiro', icon: CircleDollarSign },
     { title: 'Cobranças', url: '/cobrancas', icon: CreditCard },
     { title: 'Treinos', url: '/treinos', icon: Dumbbell },
+    { title: 'Pesquisas', url: '/pesquisas', icon: FileQuestion },
     { title: 'Planos', url: '/planos', icon: Package },
     { title: 'Configurações', url: '/configuracoes', icon: Settings },
   ]

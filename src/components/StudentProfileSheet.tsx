@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Student } from '@/stores/mockData'
 import useAppStore from '@/stores/main'
 import { formatDate } from '@/lib/formatters'
+import { StudentSurveysTab } from './surveys/StudentSurveysTab'
 
 interface Props {
   student: Student | null
@@ -74,11 +75,22 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
         </SheetHeader>
 
         <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6">
-            <TabsTrigger value="overview">Geral</TabsTrigger>
-            <TabsTrigger value="rules">Regras</TabsTrigger>
-            <TabsTrigger value="contact">Contato</TabsTrigger>
-            <TabsTrigger value="communication">Comunicação</TabsTrigger>
+          <TabsList className="flex flex-wrap w-full h-auto gap-1 mb-6">
+            <TabsTrigger value="overview" className="flex-1">
+              Geral
+            </TabsTrigger>
+            <TabsTrigger value="rules" className="flex-1">
+              Regras
+            </TabsTrigger>
+            <TabsTrigger value="contact" className="flex-1">
+              Contato
+            </TabsTrigger>
+            <TabsTrigger value="communication" className="flex-1">
+              Comunicação
+            </TabsTrigger>
+            <TabsTrigger value="surveys" className="flex-1">
+              Pesquisas
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4 animate-fade-in">
@@ -258,6 +270,10 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="surveys" className="animate-fade-in space-y-4">
+            <StudentSurveysTab studentId={student.id} />
           </TabsContent>
         </Tabs>
       </SheetContent>

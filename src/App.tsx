@@ -21,6 +21,7 @@ import Communication from './pages/Communication'
 import Agenda from './pages/Agenda'
 import Academy from './pages/Academy'
 import Community from './pages/Community'
+import Surveys from './pages/Surveys'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -45,6 +46,7 @@ const App = () => (
             <Route path="/cobrancas" element={<Billing />} />
             <Route path="/sessoes" element={<Sessions />} />
             <Route path="/treinos" element={<Workouts />} />
+            <Route path="/pesquisas" element={<Surveys />} />
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/inquilinos" element={<Tenants />} />
             <Route path="/planos" element={<Plans />} />
