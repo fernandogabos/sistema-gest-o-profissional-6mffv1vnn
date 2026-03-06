@@ -361,6 +361,11 @@ export type SocialComment = {
   createdAt: string
 }
 
+export type SocialReaction = {
+  userId: string
+  type: 'heart' | 'fire' | 'thumbs_up' | 'party'
+}
+
 export type SocialPost = {
   id: string
   tenantId: string
@@ -368,8 +373,28 @@ export type SocialPost = {
   content: string
   imageUrl?: string
   likes: string[]
+  reactions?: SocialReaction[]
   createdAt: string
   comments: SocialComment[]
+}
+
+export type Story = {
+  id: string
+  tenantId: string
+  authorId: string
+  imageUrl: string
+  createdAt: string
+  viewed: boolean
+}
+
+export type DirectMessage = {
+  id: string
+  tenantId: string
+  senderId: string
+  receiverId: string
+  content: string
+  createdAt: string
+  read: boolean
 }
 
 const currentMonth = new Date().toISOString().slice(0, 7)
@@ -1246,6 +1271,10 @@ export const mockSocialPosts: SocialPost[] = [
       'Treino em grupo hoje foi sensacional! Parabéns a todos pelo foco e dedicação. 💪🔥',
     imageUrl: 'https://img.usecurling.com/p/800/600?q=gym%20group&color=blue',
     likes: ['u-stu1', 'u-stu2'],
+    reactions: [
+      { userId: 'u-stu1', type: 'fire' },
+      { userId: 'u-stu2', type: 'party' },
+    ],
     createdAt: new Date(Date.now() - 3600000).toISOString(),
     comments: [
       {
@@ -1263,8 +1292,169 @@ export const mockSocialPosts: SocialPost[] = [
     content:
       'Bati meu PR no agachamento! Muito feliz com a evolução nesses últimos meses de consultoria.',
     likes: ['u-prof1'],
+    reactions: [{ userId: 'u-prof1', type: 'thumbs_up' }],
     createdAt: new Date(Date.now() - 86400000).toISOString(),
     comments: [],
+  },
+]
+
+const generateHistoricalPosts = () => {
+  const posts: SocialPost[] = []
+  const now = new Date()
+  const reactionTypes: ('heart' | 'fire' | 'thumbs_up' | 'party')[] = [
+    'heart',
+    'fire',
+    'thumbs_up',
+    'party',
+  ]
+  const authors = [
+    'u-prof1',
+    'u-stu1',
+    'u-stu2',
+    'u-instr1',
+    'u-master',
+    'u-admin1',
+  ]
+  const queries = [
+    'workout',
+    'gym',
+    'fitness',
+    'running',
+    'weights',
+    'healthy',
+    'protein',
+  ]
+  const contents = [
+    'Mais um dia de treino concluído! 💪',
+    'Foco no objetivo! Hoje foi dia de pernas.',
+    'Alimentação em dia, treino em dia. Vamos pra cima!',
+    'Check-in feito! Muito suor e dedicação.',
+    'Alguém mais com dor muscular pós treino de ontem? 😅',
+    'Sextou com treino pesado!',
+    'Bati meu recorde pessoal no supino hoje!',
+    'A evolução é lenta, mas vale a pena.',
+    'Aquele pós-treino merecido!',
+    'Preparação para a corrida de fim de semana.',
+  ]
+
+  for (let i = 0; i < 40; i++) {
+    const daysAgo = Math.floor(Math.random() * 180) + 1
+    const date = new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000)
+    const authorId = authors[Math.floor(Math.random() * authors.length)]
+
+    const hasImage = Math.random() > 0.6
+    const query = queries[Math.floor(Math.random() * queries.length)]
+
+    const reactions: SocialReaction[] = []
+    const likes: string[] = []
+
+    const numReactions = Math.floor(Math.random() * 5)
+    for (let j = 0; j < numReactions; j++) {
+      const rAuthor = authors[Math.floor(Math.random() * authors.length)]
+      if (!likes.includes(rAuthor)) {
+        likes.push(rAuthor)
+        reactions.push({
+          userId: rAuthor,
+          type: reactionTypes[Math.floor(Math.random() * reactionTypes.length)],
+        })
+      }
+    }
+
+    const comments: SocialComment[] = []
+    const numComments = Math.floor(Math.random() * 4)
+    for (let k = 0; k < numComments; k++) {
+      const cAuthor = authors[Math.floor(Math.random() * authors.length)]
+      comments.push({
+        id: `sc-hist-${i}-${k}`,
+        authorId: cAuthor,
+        content: [
+          'Boa!',
+          'Pra cima!',
+          'Isso aí!',
+          'Inspirador!',
+          'Foguete não tem ré! 🚀',
+          'Muito bom!',
+          'Exemplo!',
+        ][Math.floor(Math.random() * 7)],
+        createdAt: new Date(date.getTime() + (k + 1) * 3600000).toISOString(),
+      })
+    }
+
+    posts.push({
+      id: `sp-hist-${i}`,
+      tenantId: 't-1',
+      authorId,
+      content: contents[Math.floor(Math.random() * contents.length)],
+      imageUrl: hasImage
+        ? `https://img.usecurling.com/p/800/600?q=${query}&seed=${i}`
+        : undefined,
+      likes,
+      reactions,
+      createdAt: date.toISOString(),
+      comments,
+    })
+  }
+  return posts.sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  )
+}
+
+mockSocialPosts.push(...generateHistoricalPosts())
+
+export const mockStories: Story[] = [
+  {
+    id: 'st-1',
+    tenantId: 't-1',
+    authorId: 'u-prof1',
+    imageUrl: 'https://img.usecurling.com/p/400/800?q=gym%20selfie',
+    createdAt: new Date().toISOString(),
+    viewed: false,
+  },
+  {
+    id: 'st-2',
+    tenantId: 't-1',
+    authorId: 'u-stu1',
+    imageUrl: 'https://img.usecurling.com/p/400/800?q=healthy%20food',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    viewed: true,
+  },
+  {
+    id: 'st-3',
+    tenantId: 't-1',
+    authorId: 'u-stu2',
+    imageUrl: 'https://img.usecurling.com/p/400/800?q=running%20shoes',
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+    viewed: false,
+  },
+]
+
+export const mockDirectMessages: DirectMessage[] = [
+  {
+    id: 'dm-1',
+    tenantId: 't-1',
+    senderId: 'u-stu1',
+    receiverId: 'u-prof1',
+    content: 'Professor, posso trocar o treino de hoje?',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    read: true,
+  },
+  {
+    id: 'dm-2',
+    tenantId: 't-1',
+    senderId: 'u-prof1',
+    receiverId: 'u-stu1',
+    content: 'Claro, coloquei um treino alternativo no app.',
+    createdAt: new Date(Date.now() - 82800000).toISOString(),
+    read: true,
+  },
+  {
+    id: 'dm-3',
+    tenantId: 't-1',
+    senderId: 'u-stu2',
+    receiverId: 'u-prof1',
+    content: 'Bom dia! A academia hoje fecha mais cedo?',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    read: false,
   },
 ]
 

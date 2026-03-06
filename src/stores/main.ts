@@ -36,6 +36,8 @@ import {
   CommunityPost,
   SocialPost,
   SocialComment,
+  Story,
+  DirectMessage,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -64,6 +66,8 @@ import {
   mockCourseEvaluations,
   mockCommunityPosts,
   mockSocialPosts,
+  mockStories,
+  mockDirectMessages,
   themeOptions,
 } from './mockData'
 
@@ -97,6 +101,8 @@ type AppState = {
   courseEvaluations: CourseEvaluation[]
   communityPosts: CommunityPost[]
   socialPosts: SocialPost[]
+  stories: Story[]
+  directMessages: DirectMessage[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -186,7 +192,15 @@ type AppActions = {
   likePost: (postId: string) => void
   addSocialPost: (content: string, imageUrl?: string) => void
   likeSocialPost: (postId: string) => void
+  reactToSocialPost: (
+    postId: string,
+    type: 'heart' | 'fire' | 'thumbs_up' | 'party',
+  ) => void
   addSocialComment: (postId: string, content: string) => void
+  sendDirectMessage: (receiverId: string, content: string) => void
+  markMessagesAsRead: (senderId: string) => void
+  addStory: (imageUrl: string) => void
+  viewStory: (storyId: string) => void
 }
 
 type AppStore = AppState & AppActions
@@ -223,6 +237,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     courseEvaluations: mockCourseEvaluations,
     communityPosts: mockCommunityPosts,
     socialPosts: mockSocialPosts,
+    stories: mockStories,
+    directMessages: mockDirectMessages,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -892,6 +908,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               content,
               imageUrl,
               likes: [],
+              reactions: [],
               createdAt: new Date().toISOString(),
               comments: [],
             },
@@ -905,11 +922,57 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           socialPosts: prev.socialPosts.map((p) => {
             if (p.id === postId) {
               const hasLiked = p.likes.includes(prev.currentUser.id)
+              const existingReactions = p.reactions || []
+              let newReactions = [...existingReactions]
+              if (hasLiked) {
+                newReactions = newReactions.filter(
+                  (r) => r.userId !== prev.currentUser.id,
+                )
+              } else {
+                newReactions.push({
+                  userId: prev.currentUser.id,
+                  type: 'heart',
+                })
+              }
               return {
                 ...p,
                 likes: hasLiked
                   ? p.likes.filter((id) => id !== prev.currentUser.id)
                   : [...p.likes, prev.currentUser.id],
+                reactions: newReactions,
+              }
+            }
+            return p
+          }),
+        })),
+
+      reactToSocialPost: (postId, type) =>
+        setState((prev) => ({
+          ...prev,
+          socialPosts: prev.socialPosts.map((p) => {
+            if (p.id === postId) {
+              const existingReactions = p.reactions || []
+              const userReactionIndex = existingReactions.findIndex(
+                (r) => r.userId === prev.currentUser.id,
+              )
+              const newReactions = [...existingReactions]
+
+              if (userReactionIndex >= 0) {
+                if (newReactions[userReactionIndex].type === type) {
+                  newReactions.splice(userReactionIndex, 1)
+                } else {
+                  newReactions[userReactionIndex] = {
+                    ...newReactions[userReactionIndex],
+                    type,
+                  }
+                }
+              } else {
+                newReactions.push({ userId: prev.currentUser.id, type })
+              }
+              return {
+                ...p,
+                reactions: newReactions,
+                likes: newReactions.map((r) => r.userId),
               }
             }
             return p
@@ -936,6 +999,57 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
             }
             return p
           }),
+        })),
+
+      sendDirectMessage: (receiverId, content) =>
+        setState((prev) => ({
+          ...prev,
+          directMessages: [
+            ...prev.directMessages,
+            {
+              id: `dm-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              senderId: prev.currentUser.id,
+              receiverId,
+              content,
+              createdAt: new Date().toISOString(),
+              read: false,
+            },
+          ],
+        })),
+
+      markMessagesAsRead: (senderId) =>
+        setState((prev) => ({
+          ...prev,
+          directMessages: prev.directMessages.map((m) =>
+            m.senderId === senderId && m.receiverId === prev.currentUser.id
+              ? { ...m, read: true }
+              : m,
+          ),
+        })),
+
+      addStory: (imageUrl) =>
+        setState((prev) => ({
+          ...prev,
+          stories: [
+            {
+              id: `st-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              authorId: prev.currentUser.id,
+              imageUrl,
+              createdAt: new Date().toISOString(),
+              viewed: false,
+            },
+            ...prev.stories,
+          ],
+        })),
+
+      viewStory: (storyId) =>
+        setState((prev) => ({
+          ...prev,
+          stories: prev.stories.map((s) =>
+            s.id === storyId ? { ...s, viewed: true } : s,
+          ),
         })),
     }),
     [],
