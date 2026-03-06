@@ -14,6 +14,7 @@ import {
   CalendarDays,
   CreditCard,
   GraduationCap,
+  Globe,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -40,6 +41,7 @@ export function AppSidebar() {
 
   const profItems = [
     { title: 'Dashboard', url: '/dashboard', icon: LayoutDashboard },
+    { title: 'Comunidade', url: '/comunidade', icon: Globe },
     { title: 'Agenda', url: '/agenda', icon: CalendarDays },
     { title: 'Academia INNOVA', url: '/academia', icon: GraduationCap },
     { title: 'Alunos', url: '/alunos', icon: Users },

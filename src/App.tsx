@@ -20,6 +20,7 @@ import Evaluations from './pages/Evaluations'
 import Communication from './pages/Communication'
 import Agenda from './pages/Agenda'
 import Academy from './pages/Academy'
+import Community from './pages/Community'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -34,6 +35,7 @@ const App = () => (
           <Route path="/" element={<Landing />} />
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<Index />} />
+            <Route path="/comunidade" element={<Community />} />
             <Route path="/agenda" element={<Agenda />} />
             <Route path="/locais" element={<Locations />} />
             <Route path="/alunos" element={<Students />} />

@@ -354,6 +354,24 @@ export type CommunityPost = {
   }[]
 }
 
+export type SocialComment = {
+  id: string
+  authorId: string
+  content: string
+  createdAt: string
+}
+
+export type SocialPost = {
+  id: string
+  tenantId: string
+  authorId: string
+  content: string
+  imageUrl?: string
+  likes: string[]
+  createdAt: string
+  comments: SocialComment[]
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -1216,6 +1234,37 @@ export const mockCommunityPosts: CommunityPost[] = [
     isResolved: false,
     likes: 8,
     replies: [],
+  },
+]
+
+export const mockSocialPosts: SocialPost[] = [
+  {
+    id: 'sp-1',
+    tenantId: 't-1',
+    authorId: 'u-prof1',
+    content:
+      'Treino em grupo hoje foi sensacional! Parabéns a todos pelo foco e dedicação. 💪🔥',
+    imageUrl: 'https://img.usecurling.com/p/800/600?q=gym%20group&color=blue',
+    likes: ['u-stu1', 'u-stu2'],
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+    comments: [
+      {
+        id: 'sc-1',
+        authorId: 'u-stu1',
+        content: 'Foi incrível mesmo! Que venha o próximo.',
+        createdAt: new Date(Date.now() - 1800000).toISOString(),
+      },
+    ],
+  },
+  {
+    id: 'sp-2',
+    tenantId: 't-1',
+    authorId: 'u-stu2',
+    content:
+      'Bati meu PR no agachamento! Muito feliz com a evolução nesses últimos meses de consultoria.',
+    likes: ['u-prof1'],
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    comments: [],
   },
 ]
 

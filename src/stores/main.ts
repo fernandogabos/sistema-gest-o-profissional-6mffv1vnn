@@ -34,6 +34,8 @@ import {
   GamificationProfile,
   CourseEvaluation,
   CommunityPost,
+  SocialPost,
+  SocialComment,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -61,6 +63,7 @@ import {
   mockGamificationProfiles,
   mockCourseEvaluations,
   mockCommunityPosts,
+  mockSocialPosts,
   themeOptions,
 } from './mockData'
 
@@ -93,6 +96,7 @@ type AppState = {
   gamificationProfiles: GamificationProfile[]
   courseEvaluations: CourseEvaluation[]
   communityPosts: CommunityPost[]
+  socialPosts: SocialPost[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -180,6 +184,9 @@ type AppActions = {
   replyToPost: (postId: string, content: string) => void
   markBestAnswer: (postId: string, replyId: string) => void
   likePost: (postId: string) => void
+  addSocialPost: (content: string, imageUrl?: string) => void
+  likeSocialPost: (postId: string) => void
+  addSocialComment: (postId: string, content: string) => void
 }
 
 type AppStore = AppState & AppActions
@@ -215,6 +222,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     gamificationProfiles: mockGamificationProfiles,
     courseEvaluations: mockCourseEvaluations,
     communityPosts: mockCommunityPosts,
+    socialPosts: mockSocialPosts,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -871,6 +879,63 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
           communityPosts: prev.communityPosts.map((p) =>
             p.id === postId ? { ...p, likes: p.likes + 1 } : p,
           ),
+        })),
+
+      addSocialPost: (content, imageUrl) =>
+        setState((prev) => ({
+          ...prev,
+          socialPosts: [
+            {
+              id: `sp-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              authorId: prev.currentUser.id,
+              content,
+              imageUrl,
+              likes: [],
+              createdAt: new Date().toISOString(),
+              comments: [],
+            },
+            ...prev.socialPosts,
+          ],
+        })),
+
+      likeSocialPost: (postId) =>
+        setState((prev) => ({
+          ...prev,
+          socialPosts: prev.socialPosts.map((p) => {
+            if (p.id === postId) {
+              const hasLiked = p.likes.includes(prev.currentUser.id)
+              return {
+                ...p,
+                likes: hasLiked
+                  ? p.likes.filter((id) => id !== prev.currentUser.id)
+                  : [...p.likes, prev.currentUser.id],
+              }
+            }
+            return p
+          }),
+        })),
+
+      addSocialComment: (postId, content) =>
+        setState((prev) => ({
+          ...prev,
+          socialPosts: prev.socialPosts.map((p) => {
+            if (p.id === postId) {
+              return {
+                ...p,
+                comments: [
+                  ...p.comments,
+                  {
+                    id: `sc-${Date.now()}`,
+                    authorId: prev.currentUser.id,
+                    content,
+                    createdAt: new Date().toISOString(),
+                  },
+                ],
+              }
+            }
+            return p
+          }),
         })),
     }),
     [],
