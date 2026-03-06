@@ -22,6 +22,7 @@ import { Student } from '@/stores/mockData'
 import useAppStore from '@/stores/main'
 import { formatDate } from '@/lib/formatters'
 import { StudentSurveysTab } from './surveys/StudentSurveysTab'
+import { StudentTermsTab } from './terms/StudentTermsTab'
 
 interface Props {
   student: Student | null
@@ -90,6 +91,9 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
             </TabsTrigger>
             <TabsTrigger value="surveys" className="flex-1">
               Pesquisas
+            </TabsTrigger>
+            <TabsTrigger value="terms" className="flex-1">
+              Termos
             </TabsTrigger>
           </TabsList>
 
@@ -274,6 +278,10 @@ export function StudentProfileSheet({ student, open, onOpenChange }: Props) {
 
           <TabsContent value="surveys" className="animate-fade-in space-y-4">
             <StudentSurveysTab studentId={student.id} />
+          </TabsContent>
+
+          <TabsContent value="terms" className="animate-fade-in space-y-4">
+            <StudentTermsTab studentId={student.id} />
           </TabsContent>
         </Tabs>
       </SheetContent>

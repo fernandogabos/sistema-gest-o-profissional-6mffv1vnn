@@ -22,6 +22,7 @@ import Agenda from './pages/Agenda'
 import Academy from './pages/Academy'
 import Community from './pages/Community'
 import Surveys from './pages/Surveys'
+import Terms from './pages/Terms'
 import NotFound from './pages/NotFound'
 
 const App = () => (
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/sessoes" element={<Sessions />} />
             <Route path="/treinos" element={<Workouts />} />
             <Route path="/pesquisas" element={<Surveys />} />
+            <Route path="/termos" element={<Terms />} />
             <Route path="/configuracoes" element={<Settings />} />
             <Route path="/inquilinos" element={<Tenants />} />
             <Route path="/planos" element={<Plans />} />

@@ -16,6 +16,7 @@ import {
   GraduationCap,
   Globe,
   FileQuestion,
+  FileText,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -54,6 +55,7 @@ export function AppSidebar() {
     { title: 'Cobranças', url: '/cobrancas', icon: CreditCard },
     { title: 'Treinos', url: '/treinos', icon: Dumbbell },
     { title: 'Pesquisas', url: '/pesquisas', icon: FileQuestion },
+    { title: 'Termos', url: '/termos', icon: FileText },
     { title: 'Planos', url: '/planos', icon: Package },
     { title: 'Configurações', url: '/configuracoes', icon: Settings },
   ]

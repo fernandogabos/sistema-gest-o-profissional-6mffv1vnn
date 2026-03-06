@@ -425,6 +425,23 @@ export type SurveyResponse = {
   createdAt: string
 }
 
+export type Term = {
+  id: string
+  tenantId: string
+  title: string
+  content: string
+  isActive: boolean
+  createdAt: string
+}
+
+export type StudentTermAcceptance = {
+  id: string
+  tenantId: string
+  studentId: string
+  termId: string
+  acceptedAt: string
+}
+
 const currentMonth = new Date().toISOString().slice(0, 7)
 const today = new Date().toISOString().slice(0, 10)
 
@@ -1538,6 +1555,37 @@ export const mockSurveyResponses: SurveyResponse[] = [
       { questionId: 'q2', value: 'Ótimos resultados nos treinos.' },
     ],
     createdAt: '2023-11-05T10:00:00Z',
+  },
+]
+
+export const mockTerms: Term[] = [
+  {
+    id: 'term-1',
+    tenantId: 't-1',
+    title: 'Termo de Responsabilidade e Saúde',
+    content:
+      'Declaro para os devidos fins que estou em plenas condições de saúde e apto para realizar atividades físicas...',
+    isActive: true,
+    createdAt: '2023-10-01T10:00:00Z',
+  },
+  {
+    id: 'term-2',
+    tenantId: 't-1',
+    title: 'Regras de Agendamento e Cancelamento',
+    content:
+      '1. Cancelamentos devem ser feitos com no mínimo 24h de antecedência. 2. Atrasos superiores a 15min configuram no-show.',
+    isActive: true,
+    createdAt: '2023-10-05T10:00:00Z',
+  },
+]
+
+export const mockStudentTermAcceptances: StudentTermAcceptance[] = [
+  {
+    id: 'sta-1',
+    tenantId: 't-1',
+    studentId: 'stu-1',
+    termId: 'term-1',
+    acceptedAt: '2023-10-10T14:30:00Z',
   },
 ]
 

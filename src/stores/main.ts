@@ -39,6 +39,8 @@ import {
   DirectMessage,
   Survey,
   SurveyResponse,
+  Term,
+  StudentTermAcceptance,
   mockTenants,
   mockUsers,
   mockPlans,
@@ -71,6 +73,8 @@ import {
   mockDirectMessages,
   mockSurveys,
   mockSurveyResponses,
+  mockTerms,
+  mockStudentTermAcceptances,
   themeOptions,
 } from './mockData'
 
@@ -108,6 +112,8 @@ type AppState = {
   directMessages: DirectMessage[]
   surveys: Survey[]
   surveyResponses: SurveyResponse[]
+  terms: Term[]
+  studentTermAcceptances: StudentTermAcceptance[]
   theme: Theme
   currentLocationId: string | 'all'
 }
@@ -212,6 +218,10 @@ type AppActions = {
   submitSurveyResponse: (
     response: Omit<SurveyResponse, 'id' | 'tenantId' | 'createdAt'>,
   ) => void
+  addTerm: (term: Omit<Term, 'id' | 'tenantId' | 'createdAt'>) => void
+  updateTerm: (id: string, updates: Partial<Term>) => void
+  deleteTerm: (id: string) => void
+  acceptTerm: (studentId: string, termId: string) => void
 }
 
 type AppStore = AppState & AppActions
@@ -252,6 +262,8 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     directMessages: mockDirectMessages,
     surveys: mockSurveys,
     surveyResponses: mockSurveyResponses,
+    terms: mockTerms,
+    studentTermAcceptances: mockStudentTermAcceptances,
     theme: {
       primaryColor: 'blue',
       brandName: 'Personal Pro',
@@ -1103,6 +1115,49 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
               id: `sr-${Date.now()}`,
               tenantId: prev.currentUser.tenantId!,
               createdAt: new Date().toISOString(),
+            },
+          ],
+        })),
+
+      addTerm: (term) =>
+        setState((prev) => ({
+          ...prev,
+          terms: [
+            ...prev.terms,
+            {
+              ...term,
+              id: `term-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        })),
+
+      updateTerm: (id, updates) =>
+        setState((prev) => ({
+          ...prev,
+          terms: prev.terms.map((t) =>
+            t.id === id ? { ...t, ...updates } : t,
+          ),
+        })),
+
+      deleteTerm: (id) =>
+        setState((prev) => ({
+          ...prev,
+          terms: prev.terms.filter((t) => t.id !== id),
+        })),
+
+      acceptTerm: (studentId, termId) =>
+        setState((prev) => ({
+          ...prev,
+          studentTermAcceptances: [
+            ...prev.studentTermAcceptances,
+            {
+              id: `sta-${Date.now()}`,
+              tenantId: prev.currentUser.tenantId!,
+              studentId,
+              termId,
+              acceptedAt: new Date().toISOString(),
             },
           ],
         })),
