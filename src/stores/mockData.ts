@@ -855,6 +855,67 @@ export const mockEvents: AgendaEvent[] = [
   },
 ]
 
+const generateMockAgenda = () => {
+  const now = new Date()
+  const start = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 17, now.getUTCDate()),
+  )
+  const end = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, now.getUTCDate()),
+  )
+
+  let counter = 100
+  for (let d = new Date(start); d <= end; d.setUTCDate(d.getUTCDate() + 1)) {
+    const dayOfWeek = d.getUTCDay()
+    if (dayOfWeek === 0) continue
+
+    const dateStr = d.toISOString().slice(0, 10)
+    const isPast = dateStr < today
+
+    for (let h = 6; h <= 21; h++) {
+      if (Math.random() < 0.75) {
+        if (dateStr === today && (h === 8 || h === 9 || h === 12)) continue
+
+        const studentId = Math.random() > 0.5 ? 'stu-1' : 'stu-2'
+        const locationId = Math.random() > 0.5 ? 'loc-1' : 'loc-2'
+
+        let status: AgendaEvent['status'] = 'scheduled'
+        if (isPast) {
+          const r = Math.random()
+          if (r < 0.85) status = 'performed'
+          else if (r < 0.95) status = 'canceled_student'
+          else status = 'no_show'
+        } else {
+          status = Math.random() > 0.6 ? 'confirmed' : 'scheduled'
+        }
+
+        const value = studentId === 'stu-1' ? 120 : 150
+        const splitValue = locationId === 'loc-1' ? value * 0.3 : 50
+        const netValue = value - splitValue
+
+        mockEvents.push({
+          id: `evt-gen-${counter++}`,
+          tenantId: 't-1',
+          userId: 'u-prof1',
+          studentId,
+          locationId,
+          title: studentId === 'stu-1' ? 'Sessão Carlos' : 'Sessão Ana',
+          date: dateStr,
+          startTime: `${h.toString().padStart(2, '0')}:00`,
+          endTime: `${(h + 1).toString().padStart(2, '0')}:00`,
+          type: 'session',
+          status,
+          value,
+          splitValue,
+          netValue,
+        })
+      }
+    }
+  }
+}
+
+generateMockAgenda()
+
 export const mockAnalyticsAgenda: AnalyticsAgenda[] = []
 for (let d = 1; d <= 5; d++) {
   for (let h = 6; h <= 21; h++) {
